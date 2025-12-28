@@ -10,7 +10,33 @@ const OWNER = {
   whatsapp: "https://wa.me/6285185667890"
 };
 
-/* ================= UTIL ================= */
+/* ================= BASE32 (REAL) ================= */
+const BASE32 = {
+  alphabet: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
+  encode(input) {
+    let bits = "", out = "";
+    const buf = Buffer.from(input);
+    for (const b of buf) bits += b.toString(2).padStart(8, "0");
+    for (let i = 0; i + 5 <= bits.length; i += 5) {
+      out += this.alphabet[parseInt(bits.slice(i, i + 5), 2)];
+    }
+    return out;
+  },
+  decode(input) {
+    let bits = "";
+    for (const c of input.toUpperCase()) {
+      const v = this.alphabet.indexOf(c);
+      if (v >= 0) bits += v.toString(2).padStart(5, "0");
+    }
+    const out = [];
+    for (let i = 0; i + 8 <= bits.length; i += 8) {
+      out.push(parseInt(bits.slice(i, i + 8), 2));
+    }
+    return Buffer.from(out).toString();
+  }
+};
+
+/* ================= UTILS ================= */
 const esc = t =>
   t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
@@ -27,7 +53,7 @@ async function getFileText(token, file_id) {
 
 /* ================= HANDLER ================= */
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(200).json({ ok:true });
+  if (req.method !== "POST") return res.status(200).json({ ok: true });
 
   try {
     const token = req.url.split("/").pop().split("?")[0];
@@ -35,7 +61,7 @@ export default async function handler(req, res) {
 
     const API = `https://api.telegram.org/bot${token}`;
 
-    const send = (chat_id, text, kb={}) =>
+    const send = (chat_id, text, kb = {}) =>
       axios.post(`${API}/sendMessage`, {
         chat_id,
         text,
@@ -43,7 +69,7 @@ export default async function handler(req, res) {
         reply_markup: kb
       });
 
-    const safeEdit = async (chat_id, message_id, text, kb={}) => {
+    const safeEdit = async (chat_id, message_id, text, kb = {}) => {
       try {
         await axios.post(`${API}/editMessageText`, {
           chat_id,
@@ -53,8 +79,9 @@ export default async function handler(req, res) {
           reply_markup: kb
         });
       } catch (e) {
-        if (e.response?.data?.description?.includes("message is not modified"))
-          return;
+        if (
+          e.response?.data?.description?.includes("message is not modified")
+        ) return;
         throw e;
       }
     };
@@ -80,18 +107,15 @@ export default async function handler(req, res) {
 `<b>🚀 NexaBot</b>
 <i>Universal Encoder • Decoder • Obfuscator</i>
 
-NexaBot is an all-in-one toolkit for developers and general users
-to encode, decode, and obfuscate data easily.
+Encode, decode, and obfuscate text or files easily.
 
-<b>Main Features</b>
-• 🔐 Encode — 27+ formats
-• 🔓 Decode — 26+ formats
-• 🛡 Obfuscate source code
-• 📎 Text & file input support
-• 🔗 Chain encoding / decoding
-• ⭐ Public rating system
+• 🔐 Encode 27+ types
+• 🔓 Decode 26+ types
+• 🛡 Code Obfuscation
+• 🔗 Chain support
+• 📎 Reply file supported
 
-Use the menu below to explore.`,
+Select a menu below.`,
         MAIN_MENU
       );
       return res.status(200).end();
@@ -103,138 +127,104 @@ Use the menu below to explore.`,
       const d = cb.data;
 
       if (d === "menu")
-        await safeEdit(chatId,msgId,
+        await safeEdit(chatId, msgId,
 `<b>🚀 NexaBot</b>
 Select a feature below:`,
-        MAIN_MENU
-      );
+          MAIN_MENU
+        );
 
       else if (d === "encode")
-        await safeEdit(chatId,msgId,
+        await safeEdit(chatId, msgId,
 `🔐 <b>ENCODE</b>
 
-<b>Usage</b>
-/enc &lt;type&gt; &lt;text&gt;
-/enc &lt;type&gt;   (reply text or file)
+Format:
+  /enc &lt;type&gt; &lt;text&gt;
+  /enc &lt;type&gt;   (reply text or file)
 
 Chain:
-/enc chain:&lt;type&gt;|&lt;type&gt;|...
+  /enc chain:&lt;type&gt;|&lt;type&gt;|...
 
-<b>Types</b>
-
-<b>Basic</b>
-b64, b32, hex, bin, oct, ascii
-
-<b>Transform</b>
-rev, rot13, rot47, caesar, xor
-
-<b>Web</b>
-url, html, unicode, escape, json
-
-<b>Hash</b>
-md5, sha1, sha256, sha512
-
-<b>Compression</b>
-gzip, deflate
-
-<b>Advanced</b>
-doubleb64, mirror, multi`,
-        BACK
-      );
+Types:
+  b64, b32, hex, bin, oct, ascii
+  rev, rot13, rot47, caesar, xor
+  url, html, unicode, escape, json
+  md5, sha1, sha256, sha512
+  gzip, deflate
+  doubleb64, mirror, multi`,
+          BACK
+        );
 
       else if (d === "decode")
-        await safeEdit(chatId,msgId,
+        await safeEdit(chatId, msgId,
 `🔓 <b>DECODE</b>
 
-<b>Usage</b>
-/dec &lt;type&gt; &lt;text&gt;
-/dec &lt;type&gt;   (reply text or file)
+Format:
+  /dec &lt;type&gt; &lt;text&gt;
+  /dec &lt;type&gt;   (reply text or file)
 
 Chain:
-/dec chain:&lt;type&gt;|&lt;type&gt;|...
+  /dec chain:&lt;type&gt;|&lt;type&gt;|...
 
-<b>Types</b>
-
-<b>Basic</b>
-b64, hex, bin, oct, ascii
-
-<b>Transform</b>
-rev, rot13, rot47, caesar, xor
-
-<b>Web</b>
-url, html, unicode, unescape, json
-
-<b>Compression</b>
-gzip, deflate
-
-<b>Advanced</b>
-doubleb64, mirror, multi
-
-<b>Utility</b>
-trim, lower, upper`,
-        BACK
-      );
+Types:
+  b64, b32, hex, bin, oct, ascii
+  rev, rot13, rot47, caesar, xor
+  url, html, unicode, unescape, json
+  gzip, deflate
+  doubleb64, mirror, multi
+  trim, lower, upper`,
+          BACK
+        );
 
       else if (d === "obf")
-        await safeEdit(chatId,msgId,
+        await safeEdit(chatId, msgId,
 `🛡 <b>OBFUSCATOR</b>
 
-<b>Usage</b>
-/obf &lt;type&gt; &lt;code&gt;
-/obf &lt;type&gt;   (reply text or file)
+Format:
+  /obf &lt;type&gt; &lt;code&gt;
+  /obf &lt;type&gt;   (reply text or file)
 
-<b>Types</b>
-js, html, py, php
+Types:
+  js, html, py, php
 
 <i>Obfuscation is one-way.</i>`,
-        BACK
-      );
+          BACK
+        );
 
       else if (d === "owner")
-        await safeEdit(chatId,msgId,
-`👤 <b>OWNER INFORMATION</b>
+        await safeEdit(chatId, msgId,
+`👤 <b>OWNER</b>
 
-Name:
 ${OWNER.name}
-
-Telegram:
 ${OWNER.telegram}
-
-WhatsApp:
-${OWNER.whatsapp}
-
-<i>Feel free to contact for support or feedback.</i>`,
-        BACK
-      );
+${OWNER.whatsapp}`,
+          BACK
+        );
 
       else if (d === "rate")
-        await safeEdit(chatId,msgId,
+        await safeEdit(chatId, msgId,
 `⭐ <b>RATE NEXABOT</b>
-
-Your rating helps improve NexaBot.
-Choose from 1 to 5 stars below.`,
-        RATING
-      );
+Choose a rating below:`,
+          RATING
+        );
 
       else if (d.startsWith("rate_")) {
         const star = d.split("_")[1];
         await send(
           OWNER.id,
-`⭐ <b>New Rating Received</b>
-From User: <code>${chatId}</code>
+`⭐ New Rating
+User: ${chatId}
 Rating: ${"⭐".repeat(star)}`
         );
-        await safeEdit(chatId,msgId,
-`✅ Thank you for rating NexaBot ${"⭐".repeat(star)}!
-Your feedback is appreciated.`,
-        BACK
+        await safeEdit(chatId, msgId,
+`✅ Thanks for rating NexaBot ${"⭐".repeat(star)}!`,
+          BACK
         );
       }
 
       return res.status(200).end();
     }
 
-    /* ================= INPUT RESOLVER ================= */
+    /* ================= INPUT ================= */
     async function resolveInput(rest) {
       if (rest) return rest;
       if (!msg?.reply_to_message) return null;
@@ -244,24 +234,39 @@ Your feedback is appreciated.`,
       return null;
     }
 
+    /* ================= SAFE CHAIN ================= */
+    async function runChain(map, chain, input) {
+      let out = input;
+      for (const step of chain) {
+        try {
+          if (!map[step]) throw new Error("type not found");
+          out = map[step](out);
+          if (out === undefined || out === null)
+            throw new Error("empty output");
+        } catch {
+          return { error: step };
+        }
+      }
+      return { out };
+    }
+
     /* ================= ENCODE ================= */
     if (text.startsWith("/enc ")) {
       const [, type, ...r] = text.split(" ");
       const input = await resolveInput(r.join(" "));
-      if (!input) return send(chatId,"❌ No input provided.");
+      if (!input) return send(chatId, "❌ No input provided.");
 
-      let out = input;
       if (type.startsWith("chain:")) {
-        for (const c of type.replace("chain:","").split("|")) {
-          if (!ENC[c]) return send(chatId,`❌ Encode type '${c}' not found.`);
-          out = ENC[c](out);
-        }
+        const chain = type.replace("chain:", "").split("|");
+        const resu = await runChain(ENC, chain, input);
+        if (resu.error)
+          return send(chatId, `❌ Encode failed at: <b>${resu.error}</b>`);
+        await send(chatId, `<b>Encoded Result</b>\n<code>${esc(resu.out)}</code>`);
       } else {
-        if (!ENC[type]) return send(chatId,"❌ Encode type not found.");
-        out = ENC[type](input);
+        if (!ENC[type]) return send(chatId, "❌ Encode type not found.");
+        const out = ENC[type](input);
+        await send(chatId, `<b>Encoded Result</b>\n<code>${esc(out)}</code>`);
       }
-
-      await send(chatId, `<b>Encoded Result</b>\n<code>${esc(out)}</code>`);
       return res.status(200).end();
     }
 
@@ -269,20 +274,19 @@ Your feedback is appreciated.`,
     if (text.startsWith("/dec ")) {
       const [, type, ...r] = text.split(" ");
       const input = await resolveInput(r.join(" "));
-      if (!input) return send(chatId,"❌ No input provided.");
+      if (!input) return send(chatId, "❌ No input provided.");
 
-      let out = input;
       if (type.startsWith("chain:")) {
-        for (const c of type.replace("chain:","").split("|").reverse()) {
-          if (!DEC[c]) return send(chatId,`❌ Decode type '${c}' not found.`);
-          out = DEC[c](out);
-        }
+        const chain = type.replace("chain:", "").split("|").reverse();
+        const resu = await runChain(DEC, chain, input);
+        if (resu.error)
+          return send(chatId, `❌ Decode failed at: <b>${resu.error}</b>`);
+        await send(chatId, `<b>Decoded Result</b>\n<code>${esc(resu.out)}</code>`);
       } else {
-        if (!DEC[type]) return send(chatId,"❌ Decode type not found.");
-        out = DEC[type](input);
+        if (!DEC[type]) return send(chatId, "❌ Decode type not found.");
+        const out = DEC[type](input);
+        await send(chatId, `<b>Decoded Result</b>\n<code>${esc(out)}</code>`);
       }
-
-      await send(chatId, `<b>Decoded Result</b>\n<code>${esc(out)}</code>`);
       return res.status(200).end();
     }
 
@@ -291,8 +295,7 @@ Your feedback is appreciated.`,
       const [, type, ...r] = text.split(" ");
       const input = await resolveInput(r.join(" "));
       if (!input || !OBF[type])
-        return send(chatId,"❌ Invalid obfuscation request.");
-
+        return send(chatId, "❌ Invalid obfuscation request.");
       await send(chatId,
 `<b>Obfuscated Output</b>
 <code>${esc(OBF[type](input))}</code>`
@@ -303,7 +306,7 @@ Your feedback is appreciated.`,
     return res.status(200).end();
 
   } catch (e) {
-    console.error("NexaBot Error:", e);
+    console.error("NexaBot Fatal:", e);
     return res.status(200).end();
   }
 }
@@ -315,11 +318,12 @@ const MAIN_MENU = {
     [{ text:"🔓 Decode", callback_data:"decode" }],
     [{ text:"🛡 Obfuscate", callback_data:"obf" }],
     [{ text:"⭐ Rate NexaBot", callback_data:"rate" }],
-    [{ text:"👤 Owner Info", callback_data:"owner" }]
+    [{ text:"👤 Owner", callback_data:"owner" }]
   ]
 };
-const BACK = { inline_keyboard:[[ { text:"🔙 Back to Menu", callback_data:"menu" } ]] };
-
+const BACK = {
+  inline_keyboard: [[{ text:"🔙 Back to Menu", callback_data:"menu" }]]
+};
 const RATING = {
   inline_keyboard: [
     [{ text:"⭐", callback_data:"rate_1" }],
@@ -334,7 +338,7 @@ const RATING = {
 /* ================= ENCODE ================= */
 const ENC = {
   b64:t=>Buffer.from(t).toString("base64"),
-  b32:t=>Buffer.from(t).toString("base64").replace(/=/g,""),
+  b32:t=>BASE32.encode(t),
   hex:t=>Buffer.from(t).toString("hex"),
   bin:t=>[...t].map(c=>c.charCodeAt(0).toString(2)).join(" "),
   oct:t=>[...t].map(c=>c.charCodeAt(0).toString(8)).join(" "),
@@ -363,6 +367,7 @@ const ENC = {
 /* ================= DECODE ================= */
 const DEC = {
   b64:t=>Buffer.from(t,"base64").toString(),
+  b32:t=>BASE32.decode(t),
   hex:t=>Buffer.from(t,"hex").toString(),
   bin:t=>t.split(" ").map(b=>String.fromCharCode(parseInt(b,2))).join(""),
   oct:t=>t.split(" ").map(o=>String.fromCharCode(parseInt(o,8))).join(""),
