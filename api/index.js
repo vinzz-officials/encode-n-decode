@@ -3,10 +3,10 @@ import crypto from "crypto";
 
 /* ================= OWNER ================= */
 const OWNER = {
-  id: "ISI_ID_OWNER",
+  id: "7777604508",
   name: "Vinzz Offc",
-  telegram: "@username",
-  whatsapp: "https://wa.me/628xxxx"
+  telegram: "@vinzz_officials",
+  whatsapp: "https://wa.me/6285185667890"
 };
 
 /* ================= HANDLER ================= */
