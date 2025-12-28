@@ -4,7 +4,7 @@ import crypto from "crypto";
 /* ========= CONFIG OWNER ========= */
 const OWNER = {
   id: "ISI_ID_OWNER",
-  name: "Vinzz Offc,
+  name: "Vinzz Offc",
   telegram: "@username",
   whatsapp: "wa.me/628xxxx"
 };
