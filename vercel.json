@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/webhook/:token",
-      "destination": "/index.js"
+      "destination": "/api/index.js"
     }
   ]
 }
