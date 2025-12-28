@@ -2,7 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import zlib from "zlib";
 
-/* ================= OWNER CONFIG ================= */
+/* ================= OWNER ================= */
 const OWNER = {
   id: "7777604508",
   name: "Vinzz Offc",
@@ -34,19 +34,40 @@ export default async function handler(req, res) {
     if (!token || !req.body) return res.status(200).end();
 
     const API = `https://api.telegram.org/bot${token}`;
+
     const send = (chat_id, text, kb={}) =>
       axios.post(`${API}/sendMessage`, {
-        chat_id, text, parse_mode:"HTML", reply_markup:kb
+        chat_id,
+        text,
+        parse_mode: "HTML",
+        reply_markup: kb
       });
 
-    const edit = (chat_id, message_id, text, kb={}) =>
-      axios.post(`${API}/editMessageText`, {
-        chat_id, message_id, text, parse_mode:"HTML", reply_markup:kb
+    const safeEdit = async (chat_id, message_id, text, kb={}) => {
+      try {
+        await axios.post(`${API}/editMessageText`, {
+          chat_id,
+          message_id,
+          text,
+          parse_mode: "HTML",
+          reply_markup: kb
+        });
+      } catch (e) {
+        if (e.response?.data?.description?.includes("message is not modified"))
+          return;
+        throw e;
+      }
+    };
+
+    const answerCb = id =>
+      axios.post(`${API}/answerCallbackQuery`, {
+        callback_query_id: id
       });
 
     const upd = req.body;
     const msg = upd.message;
     const cb  = upd.callback_query;
+
     if (!msg && !cb) return res.status(200).end();
 
     const chatId = msg?.chat?.id || cb?.message?.chat?.id;
@@ -56,19 +77,21 @@ export default async function handler(req, res) {
     /* ================= START ================= */
     if (text === "/start") {
       await send(chatId,
-`<b>🚀 NexaBot — Universal Encoder Toolkit</b>
+`<b>🚀 NexaBot</b>
+<i>Universal Encoder • Decoder • Obfuscator</i>
 
-All-in-one Encode / Decode / Obfuscation bot.
+NexaBot is an all-in-one toolkit for developers and general users
+to encode, decode, and obfuscate data easily.
 
 <b>Main Features</b>
-• 🔐 Encode (27+ types)
-• 🔓 Decode (26+ types)
-• 🛡 Code Obfuscator
-• 📎 Text & File Support
-• 🔗 Chain Encode / Decode
-• ⭐ Public Rating System
+• 🔐 Encode — 27+ formats
+• 🔓 Decode — 26+ formats
+• 🛡 Obfuscate source code
+• 📎 Text & file input support
+• 🔗 Chain encoding / decoding
+• ⭐ Public rating system
 
-Choose a menu below to start.`,
+Use the menu below to explore.`,
         MAIN_MENU
       );
       return res.status(200).end();
@@ -76,82 +99,120 @@ Choose a menu below to start.`,
 
     /* ================= CALLBACK ================= */
     if (cb) {
+      await answerCb(cb.id);
       const d = cb.data;
 
       if (d === "menu")
-        await edit(chatId,msgId,"<b>🚀 NexaBot</b>\nSelect a feature below.",MAIN_MENU);
+        await safeEdit(chatId,msgId,
+`<b>🚀 NexaBot</b>
+Select a feature below:`,
+        MAIN_MENU
+      );
 
       else if (d === "encode")
-        await edit(chatId,msgId,
+        await safeEdit(chatId,msgId,
 `🔐 <b>ENCODE</b>
 
-<b>Available Types</b>
-b64 b32 hex bin oct ascii  
-rev rot13 rot47 caesar xor  
-url html unicode escape json  
-md5 sha1 sha256 sha512  
-gzip deflate doubleb64 mirror multi
-
 <b>Usage</b>
-<code>/enc b64 hello</code>
-or reply text / file with:
-<code>/enc b64</code>
+/enc &lt;type&gt; &lt;text&gt;
+/enc &lt;type&gt;   (reply text or file)
 
-<b>Chain</b>
-<code>/enc chain:b64|hex|rev</code>`,
+Chain:
+/enc chain:&lt;type&gt;|&lt;type&gt;|...
+
+<b>Types</b>
+
+<b>Basic</b>
+b64, b32, hex, bin, oct, ascii
+
+<b>Transform</b>
+rev, rot13, rot47, caesar, xor
+
+<b>Web</b>
+url, html, unicode, escape, json
+
+<b>Hash</b>
+md5, sha1, sha256, sha512
+
+<b>Compression</b>
+gzip, deflate
+
+<b>Advanced</b>
+doubleb64, mirror, multi`,
         BACK
       );
 
       else if (d === "decode")
-        await edit(chatId,msgId,
+        await safeEdit(chatId,msgId,
 `🔓 <b>DECODE</b>
 
-<b>Available Types</b>
-b64 hex bin oct ascii  
-rev rot13 rot47 caesar xor  
-url html unicode unescape json  
-gzip deflate doubleb64 mirror multi  
-trim lower upper
-
 <b>Usage</b>
-<code>/dec b64</code>
-or reply text / file.
+/dec &lt;type&gt; &lt;text&gt;
+/dec &lt;type&gt;   (reply text or file)
 
-<b>Chain</b>
-<code>/dec chain:rev|hex|b64</code>`,
+Chain:
+/dec chain:&lt;type&gt;|&lt;type&gt;|...
+
+<b>Types</b>
+
+<b>Basic</b>
+b64, hex, bin, oct, ascii
+
+<b>Transform</b>
+rev, rot13, rot47, caesar, xor
+
+<b>Web</b>
+url, html, unicode, unescape, json
+
+<b>Compression</b>
+gzip, deflate
+
+<b>Advanced</b>
+doubleb64, mirror, multi
+
+<b>Utility</b>
+trim, lower, upper`,
         BACK
       );
 
       else if (d === "obf")
-        await edit(chatId,msgId,
+        await safeEdit(chatId,msgId,
 `🛡 <b>OBFUSCATOR</b>
 
-<b>Types</b>
-js html py php
-
 <b>Usage</b>
-<code>/obf js alert(1)</code>
-or reply text / file.
+/obf &lt;type&gt; &lt;code&gt;
+/obf &lt;type&gt;   (reply text or file)
+
+<b>Types</b>
+js, html, py, php
 
 <i>Obfuscation is one-way.</i>`,
         BACK
       );
 
       else if (d === "owner")
-        await edit(chatId,msgId,
+        await safeEdit(chatId,msgId,
 `👤 <b>OWNER INFORMATION</b>
 
-Name: ${OWNER.name}
-Telegram: ${OWNER.telegram}
-WhatsApp: ${OWNER.whatsapp}`,
+Name:
+${OWNER.name}
+
+Telegram:
+${OWNER.telegram}
+
+WhatsApp:
+${OWNER.whatsapp}
+
+<i>Feel free to contact for support or feedback.</i>`,
         BACK
       );
 
       else if (d === "rate")
-        await edit(chatId,msgId,
+        await safeEdit(chatId,msgId,
 `⭐ <b>RATE NEXABOT</b>
 
-Your feedback helps improve this bot.`,
+Your rating helps improve NexaBot.
+Choose from 1 to 5 stars below.`,
         RATING
       );
 
@@ -159,13 +220,14 @@ Your feedback helps improve this bot.`,
         const star = d.split("_")[1];
         await send(
           OWNER.id,
-`⭐ <b>New Rating</b>
-User ID: <code>${chatId}</code>
+`⭐ <b>New Rating Received</b>
+From User: <code>${chatId}</code>
 Rating: ${"⭐".repeat(star)}`
         );
-        await edit(chatId,msgId,
-          `✅ Thanks for rating NexaBot ${"⭐".repeat(star)}!`,
-          BACK
+        await safeEdit(chatId,msgId,
+`✅ Thank you for rating NexaBot ${"⭐".repeat(star)}!
+Your feedback is appreciated.`,
+        BACK
         );
       }
 
@@ -199,7 +261,8 @@ Rating: ${"⭐".repeat(star)}`
         out = ENC[type](input);
       }
 
-      return send(chatId, `<b>Result</b>\n<code>${esc(out)}</code>`);
+      await send(chatId, `<b>Encoded Result</b>\n<code>${esc(out)}</code>`);
+      return res.status(200).end();
     }
 
     /* ================= DECODE ================= */
@@ -219,23 +282,29 @@ Rating: ${"⭐".repeat(star)}`
         out = DEC[type](input);
       }
 
-      return send(chatId, `<b>Result</b>\n<code>${esc(out)}</code>`);
+      await send(chatId, `<b>Decoded Result</b>\n<code>${esc(out)}</code>`);
+      return res.status(200).end();
     }
 
     /* ================= OBF ================= */
     if (text.startsWith("/obf ")) {
       const [, type, ...r] = text.split(" ");
       const input = await resolveInput(r.join(" "));
-      if (!input || !OBF[type]) return send(chatId,"❌ Invalid obfuscation request.");
+      if (!input || !OBF[type])
+        return send(chatId,"❌ Invalid obfuscation request.");
 
-      return send(chatId, `<b>Obfuscated</b>\n<code>${esc(OBF[type](input))}</code>`);
+      await send(chatId,
+`<b>Obfuscated Output</b>
+<code>${esc(OBF[type](input))}</code>`
+      );
+      return res.status(200).end();
     }
 
-    res.status(200).end();
+    return res.status(200).end();
 
   } catch (e) {
     console.error("NexaBot Error:", e);
-    res.status(200).end();
+    return res.status(200).end();
   }
 }
 
@@ -246,10 +315,10 @@ const MAIN_MENU = {
     [{ text:"🔓 Decode", callback_data:"decode" }],
     [{ text:"🛡 Obfuscate", callback_data:"obf" }],
     [{ text:"⭐ Rate NexaBot", callback_data:"rate" }],
-    [{ text:"👤 Owner", callback_data:"owner" }]
+    [{ text:"👤 Owner Info", callback_data:"owner" }]
   ]
 };
-const BACK = { inline_keyboard:[[ { text:"🔙 Back", callback_data:"menu" } ]] };
+const BACK = { inline_keyboard:[[ { text:"🔙 Back to Menu", callback_data:"menu" } ]] };
 
 const RATING = {
   inline_keyboard: [
@@ -262,7 +331,7 @@ const RATING = {
   ]
 };
 
-/* ================= ENCODE (27) ================= */
+/* ================= ENCODE ================= */
 const ENC = {
   b64:t=>Buffer.from(t).toString("base64"),
   b32:t=>Buffer.from(t).toString("base64").replace(/=/g,""),
@@ -291,7 +360,7 @@ const ENC = {
   multi:t=>Buffer.from(Buffer.from(t).toString("base64").split("").reverse().join("")).toString("hex")
 };
 
-/* ================= DECODE (26) ================= */
+/* ================= DECODE ================= */
 const DEC = {
   b64:t=>Buffer.from(t,"base64").toString(),
   hex:t=>Buffer.from(t,"hex").toString(),
