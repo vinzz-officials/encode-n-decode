@@ -79,9 +79,8 @@ export default async function handler(req, res) {
           reply_markup: kb
         });
       } catch (e) {
-        if (
-          e.response?.data?.description?.includes("message is not modified")
-        ) return;
+        if (e.response?.data?.description?.includes("message is not modified"))
+          return;
         throw e;
       }
     };
@@ -94,7 +93,6 @@ export default async function handler(req, res) {
     const upd = req.body;
     const msg = upd.message;
     const cb  = upd.callback_query;
-
     if (!msg && !cb) return res.status(200).end();
 
     const chatId = msg?.chat?.id || cb?.message?.chat?.id;
@@ -107,15 +105,15 @@ export default async function handler(req, res) {
 `<b>🚀 NexaBot</b>
 <i>Universal Encoder • Decoder • Obfuscator</i>
 
-Encode, decode, and obfuscate text or files easily.
+All-in-one toolkit for developers.
 
-• 🔐 Encode 27+ types
-• 🔓 Decode 26+ types
-• 🛡 Code Obfuscation
-• 🔗 Chain support
-• 📎 Reply file supported
+🔐 27+ Encode Types  
+🔓 26+ Decode Types  
+🛡 Code Obfuscation  
+🔗 Chain Encoding  
+📎 Text & File Support  
 
-Select a menu below.`,
+Fast • Clean • Serverless`,
         MAIN_MENU
       );
       return res.status(200).end();
@@ -129,7 +127,7 @@ Select a menu below.`,
       if (d === "menu")
         await safeEdit(chatId, msgId,
 `<b>🚀 NexaBot</b>
-Select a feature below:`,
+Select a feature below.`,
           MAIN_MENU
         );
 
@@ -137,20 +135,32 @@ Select a feature below:`,
         await safeEdit(chatId, msgId,
 `🔐 <b>ENCODE</b>
 
-Format:
-  /enc &lt;type&gt; &lt;text&gt;
-  /enc &lt;type&gt;   (reply text or file)
+<b>Usage</b>
+<code>/enc &lt;type&gt; &lt;text&gt;</code>
+<code>/enc &lt;type&gt;</code> (reply text or file)
 
-Chain:
-  /enc chain:&lt;type&gt;|&lt;type&gt;|...
+<b>Chain</b>
+<code>/enc chain:type1|type2|type3</code>
 
-Types:
-  b64, b32, hex, bin, oct, ascii
-  rev, rot13, rot47, caesar, xor
-  url, html, unicode, escape, json
-  md5, sha1, sha256, sha512
-  gzip, deflate
-  doubleb64, mirror, multi`,
+<b>Available Types</b>
+
+• Basic  
+<code>b64 b32 hex bin oct ascii</code>
+
+• Transform  
+<code>rev rot13 rot47 caesar xor mirror</code>
+
+• Web  
+<code>url html unicode escape json</code>
+
+• Hash  
+<code>md5 sha1 sha256 sha512</code>
+
+• Compression  
+<code>gzip deflate</code>
+
+• Advanced  
+<code>doubleb64 multi</code>`,
           BACK
         );
 
@@ -158,20 +168,32 @@ Types:
         await safeEdit(chatId, msgId,
 `🔓 <b>DECODE</b>
 
-Format:
-  /dec &lt;type&gt; &lt;text&gt;
-  /dec &lt;type&gt;   (reply text or file)
+<b>Usage</b>
+<code>/dec &lt;type&gt; &lt;text&gt;</code>
+<code>/dec &lt;type&gt;</code> (reply text or file)
 
-Chain:
-  /dec chain:&lt;type&gt;|&lt;type&gt;|...
+<b>Chain</b>
+<code>/dec chain:type3|type2|type1</code>
 
-Types:
-  b64, b32, hex, bin, oct, ascii
-  rev, rot13, rot47, caesar, xor
-  url, html, unicode, unescape, json
-  gzip, deflate
-  doubleb64, mirror, multi
-  trim, lower, upper`,
+<b>Available Types</b>
+
+• Basic  
+<code>b64 b32 hex bin oct ascii</code>
+
+• Transform  
+<code>rev rot13 rot47 caesar xor mirror</code>
+
+• Web  
+<code>url html unicode unescape json</code>
+
+• Compression  
+<code>gzip deflate</code>
+
+• Advanced  
+<code>doubleb64 multi</code>
+
+• Utility  
+<code>trim lower upper</code>`,
           BACK
         );
 
@@ -179,12 +201,12 @@ Types:
         await safeEdit(chatId, msgId,
 `🛡 <b>OBFUSCATOR</b>
 
-Format:
-  /obf &lt;type&gt; &lt;code&gt;
-  /obf &lt;type&gt;   (reply text or file)
+<b>Usage</b>
+<code>/obf &lt;type&gt; &lt;code&gt;</code>
+<code>/obf &lt;type&gt;</code> (reply text or file)
 
-Types:
-  js, html, py, php
+<b>Types</b>
+<code>js html py php</code>
 
 <i>Obfuscation is one-way.</i>`,
           BACK
@@ -194,16 +216,17 @@ Types:
         await safeEdit(chatId, msgId,
 `👤 <b>OWNER</b>
 
-${OWNER.name}
-${OWNER.telegram}
-${OWNER.whatsapp}`,
+<b>${OWNER.name}</b>
+Telegram: ${OWNER.telegram}
+WhatsApp: ${OWNER.whatsapp}`,
           BACK
         );
 
       else if (d === "rate")
         await safeEdit(chatId, msgId,
-`⭐ <b>RATE NEXABOT</b>
-Choose a rating below:`,
+`⭐ <b>Rate NexaBot</b>
+
+Your feedback helps improve this project.`,
           RATING
         );
 
@@ -238,14 +261,10 @@ Rating: ${"⭐".repeat(star)}`
     async function runChain(map, chain, input) {
       let out = input;
       for (const step of chain) {
-        try {
-          if (!map[step]) throw new Error("type not found");
-          out = map[step](out);
-          if (out === undefined || out === null)
-            throw new Error("empty output");
-        } catch {
+        if (!map[step]) return { error: step };
+        out = map[step](out);
+        if (out === undefined || out === null || out === "")
           return { error: step };
-        }
       }
       return { out };
     }
@@ -264,8 +283,7 @@ Rating: ${"⭐".repeat(star)}`
         await send(chatId, `<b>Encoded Result</b>\n<code>${esc(resu.out)}</code>`);
       } else {
         if (!ENC[type]) return send(chatId, "❌ Encode type not found.");
-        const out = ENC[type](input);
-        await send(chatId, `<b>Encoded Result</b>\n<code>${esc(out)}</code>`);
+        await send(chatId, `<b>Encoded Result</b>\n<code>${esc(ENC[type](input))}</code>`);
       }
       return res.status(200).end();
     }
@@ -284,8 +302,7 @@ Rating: ${"⭐".repeat(star)}`
         await send(chatId, `<b>Decoded Result</b>\n<code>${esc(resu.out)}</code>`);
       } else {
         if (!DEC[type]) return send(chatId, "❌ Decode type not found.");
-        const out = DEC[type](input);
-        await send(chatId, `<b>Decoded Result</b>\n<code>${esc(out)}</code>`);
+        await send(chatId, `<b>Decoded Result</b>\n<code>${esc(DEC[type](input))}</code>`);
       }
       return res.status(200).end();
     }
@@ -336,7 +353,7 @@ const RATING = {
 };
 
 /* ================= ENCODE ================= */
-const ENC = {
+const ENC = { /* === SAMA PERSIS SEPERTI PUNYA LU === */ 
   b64:t=>Buffer.from(t).toString("base64"),
   b32:t=>BASE32.encode(t),
   hex:t=>Buffer.from(t).toString("hex"),
@@ -365,7 +382,7 @@ const ENC = {
 };
 
 /* ================= DECODE ================= */
-const DEC = {
+const DEC = { /* === SAMA PERSIS === */
   b64:t=>Buffer.from(t,"base64").toString(),
   b32:t=>BASE32.decode(t),
   hex:t=>Buffer.from(t,"hex").toString(),
