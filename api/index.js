@@ -135,7 +135,7 @@ export default async function handler(req, res) {
     if (text === "/start") {
       await send(chatId,
 `<b>🚀 NexaBot</b>
-<i>Professional Encoder • Decoder • Obfuscator</i>
+<i>Powerfull Encoder • Decoder • Obfuscator</i>
 
 • 🔐 27+ Encode Types
 • 🔓 26+ Decode Types
