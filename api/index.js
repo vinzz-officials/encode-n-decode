@@ -1,5 +1,6 @@
 import axios from "axios";
 import crypto from "crypto";
+import zlib from "zlib";
 
 /* ================= OWNER ================= */
 const OWNER = {
@@ -9,71 +10,59 @@ const OWNER = {
   whatsapp: "https://wa.me/6285185667890"
 };
 
+/* ================= HELPERS ================= */
+const esc = t =>
+  t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+async function getFileText(token, file_id) {
+  const api = `https://api.telegram.org/bot${token}`;
+  const f = await axios.get(`${api}/getFile?file_id=${file_id}`);
+  const path = f.data.result.file_path;
+  const file = await axios.get(
+    `https://api.telegram.org/file/bot${token}/${path}`,
+    { responseType: "arraybuffer" }
+  );
+  return Buffer.from(file.data).toString();
+}
+
 /* ================= HANDLER ================= */
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.status(200).json({ status: "ok" });
-    return;
-  }
+  if (req.method !== "POST") return res.status(200).json({ ok:true });
 
   try {
     const token = req.url.split("/").pop().split("?")[0];
-    if (!token || !req.body) {
-      res.status(200).end();
-      return;
-    }
+    if (!token || !req.body) return res.status(200).end();
 
     const API = `https://api.telegram.org/bot${token}`;
-
-    const send = (chat_id, text, kb = {}) =>
+    const send = (chat_id, text, kb={}) =>
       axios.post(`${API}/sendMessage`, {
-        chat_id,
-        text,
-        parse_mode: "HTML",
-        reply_markup: kb
+        chat_id, text, parse_mode:"HTML", reply_markup:kb
       });
 
-    const edit = (chat_id, message_id, text, kb = {}) =>
+    const edit = (chat_id, message_id, text, kb={}) =>
       axios.post(`${API}/editMessageText`, {
-        chat_id,
-        message_id,
-        text,
-        parse_mode: "HTML",
-        reply_markup: kb
+        chat_id, message_id, text, parse_mode:"HTML", reply_markup:kb
       });
 
-    const update = req.body;
-    const msg = update.message;
-    const cb  = update.callback_query;
-
-    if (!msg && !cb) {
-      res.status(200).end();
-      return;
-    }
+    const upd = req.body;
+    const msg = upd.message;
+    const cb  = upd.callback_query;
+    if (!msg && !cb) return res.status(200).end();
 
     const chatId = msg?.chat?.id || cb?.message?.chat?.id;
     const msgId  = cb?.message?.message_id;
     const text   = msg?.text || "";
 
-    if (!chatId) {
-      res.status(200).end();
-      return;
-    }
-
     /* ================= START ================= */
     if (text === "/start") {
-      await send(
-        chatId,
+      await send(chatId,
 `<b>⚙️ Universal Encoder Toolkit</b>
 
-All-in-one encode & decode tools for programmers.
-
-• 🔐 25+ Encode Types
-• 🔓 20+ Decode Types
-• 🔗 Chain Encode / Decode
-• ⚡ Fast & Clean UI
-
-Use the menu below.`,
+• 🔐 Encode 27+
+• 🔓 Decode 26+
+• 🛡 Obfuscator
+• 📎 Text & File Input
+• 🔗 Chain Support`,
         MAIN_MENU
       );
       return res.status(200).end();
@@ -82,149 +71,93 @@ Use the menu below.`,
     /* ================= CALLBACK ================= */
     if (cb) {
       const d = cb.data;
-
-      if (d === "menu") {
-        await edit(chatId, msgId,
-`<b>⚙️ Universal Encoder Toolkit</b>
-
-Choose what you want to do.`,
-          MAIN_MENU
-        );
-      }
-
-      else if (d === "encode") {
-        await edit(chatId, msgId,
+      if (d === "menu")
+        await edit(chatId,msgId,"<b>⚙️ Universal Encoder Toolkit</b>",MAIN_MENU);
+      else if (d === "encode")
+        await edit(chatId,msgId,
 `🔐 <b>ENCODE</b>
-
-<b>Available Types</b>
-<code>b64 b32 hex bin oct ascii</code>
-<code>rev rot13 rot47 caesar xor</code>
-<code>url html unicode escape json</code>
-<code>md5 sha1 sha256 multi</code>
-
-<b>Usage</b>
+Reply text/file or:
 <code>/enc b64 hello</code>
-
-<b>Chain</b>
-<code>/enc chain:b64|hex|rev hello</code>`,
-          BACK
-        );
-      }
-
-      else if (d === "decode") {
-        await edit(chatId, msgId,
+<code>/enc chain:b64|hex|rev</code>`,BACK);
+      else if (d === "decode")
+        await edit(chatId,msgId,
 `🔓 <b>DECODE</b>
-
-<b>Available Types</b>
-<code>b64 hex bin oct ascii</code>
-<code>rev rot13 rot47 caesar xor</code>
-<code>url html unicode unescape json</code>
-<code>multi</code>
-
-<b>Usage</b>
-<code>/dec b64 aGVsbG8=</code>
-
-<b>Chain</b>
-<code>/dec chain:rev|hex|b64</code>`,
-          BACK
-        );
-      }
-
-      else if (d === "owner") {
-        await edit(chatId, msgId,
+Reply text/file or:
+<code>/dec b64</code>
+<code>/dec chain:rev|hex</code>`,BACK);
+      else if (d === "obf")
+        await edit(chatId,msgId,
+`🛡 <b>OBFUSCATOR</b>
+<code>/obf js alert(1)</code>`,BACK);
+      else if (d === "owner")
+        await edit(chatId,msgId,
 `👤 <b>OWNER</b>
-
-Name: ${OWNER.name}
-Telegram: ${OWNER.telegram}
-WhatsApp: ${OWNER.whatsapp}`,
-          BACK
-        );
-      }
-
-      else if (d === "rate") {
-        await edit(chatId, msgId,
-`⭐ <b>Rate this bot</b>
-
-Your feedback matters.`,
-          RATING
-        );
-      }
-
-      else if (d.startsWith("rate_")) {
-        const star = d.split("_")[1];
-        await send(
-          OWNER.id,
-`⭐ New Rating
-User: ${chatId}
-Rating: ${"⭐".repeat(star)}`
-        );
-        await edit(chatId, msgId,
-          `✅ Thanks for rating ${"⭐".repeat(star)}`,
-          BACK
-        );
-      }
-
+${OWNER.name}
+${OWNER.telegram}
+${OWNER.whatsapp}`,BACK);
       return res.status(200).end();
+    }
+
+    /* ================= INPUT RESOLVER ================= */
+    async function resolveInput(rest) {
+      if (rest) return rest;
+      if (!msg?.reply_to_message) return null;
+      const r = msg.reply_to_message;
+      if (r.text) return r.text;
+      if (r.document) return await getFileText(token, r.document.file_id);
+      return null;
     }
 
     /* ================= ENCODE ================= */
     if (text.startsWith("/enc ")) {
-      const [, type, ...rest] = text.split(" ");
-      let input = rest.join(" ");
-      let out = input;
+      const [, type, ...r] = text.split(" ");
+      let input = await resolveInput(r.join(" "));
+      if (!input) return send(chatId,"❌ No input");
 
+      let out = input;
       if (type.startsWith("chain:")) {
-        const chain = type.replace("chain:", "").split("|");
-        for (const c of chain) {
-          if (!ENC[c]) {
-            await send(chatId, `❌ Unknown encode type: <code>${c}</code>`);
-            return res.status(200).end();
-          }
+        for (const c of type.replace("chain:","").split("|")) {
+          if (!ENC[c]) return send(chatId,`❌ Encode ${c} not found`);
           out = ENC[c](out);
         }
       } else {
-        if (!ENC[type]) {
-          await send(chatId, "❌ Encode type not found");
-          return res.status(200).end();
-        }
+        if (!ENC[type]) return send(chatId,"❌ Encode type not found");
         out = ENC[type](input);
       }
-
-      await send(chatId, `<b>Result</b>\n<code>${out}</code>`);
-      return res.status(200).end();
+      return send(chatId, `<b>Result</b>\n<code>${esc(out)}</code>`);
     }
 
     /* ================= DECODE ================= */
     if (text.startsWith("/dec ")) {
-      const [, type, ...rest] = text.split(" ");
-      let input = rest.join(" ");
-      let out = input;
+      const [, type, ...r] = text.split(" ");
+      let input = await resolveInput(r.join(" "));
+      if (!input) return send(chatId,"❌ No input");
 
+      let out = input;
       if (type.startsWith("chain:")) {
-        const chain = type.replace("chain:", "").split("|").reverse();
-        for (const c of chain) {
-          if (!DEC[c]) {
-            await send(chatId, `❌ Unknown decode type: <code>${c}</code>`);
-            return res.status(200).end();
-          }
+        for (const c of type.replace("chain:","").split("|").reverse()) {
+          if (!DEC[c]) return send(chatId,`❌ Decode ${c} not found`);
           out = DEC[c](out);
         }
       } else {
-        if (!DEC[type]) {
-          await send(chatId, "❌ Decode type not found");
-          return res.status(200).end();
-        }
+        if (!DEC[type]) return send(chatId,"❌ Decode type not found");
         out = DEC[type](input);
       }
+      return send(chatId, `<b>Result</b>\n<code>${esc(out)}</code>`);
+    }
 
-      await send(chatId, `<b>Result</b>\n<code>${out}</code>`);
-      return res.status(200).end();
+    /* ================= OBF ================= */
+    if (text.startsWith("/obf ")) {
+      const [, type, ...r] = text.split(" ");
+      const input = await resolveInput(r.join(" "));
+      if (!input || !OBF[type]) return send(chatId,"❌ Invalid obf");
+      return send(chatId, `<b>Obfuscated</b>\n<code>${esc(OBF[type](input))}</code>`);
     }
 
     res.status(200).end();
 
-  } catch (err) {
-    console.error("WEBHOOK ERROR:", err);
+  } catch (e) {
+    console.error(e);
     res.status(200).end();
   }
 }
@@ -232,68 +165,74 @@ Rating: ${"⭐".repeat(star)}`
 /* ================= MENUS ================= */
 const MAIN_MENU = {
   inline_keyboard: [
-    [{ text: "🔐 Encode", callback_data: "encode" }],
-    [{ text: "🔓 Decode", callback_data: "decode" }],
-    [{ text: "👤 Owner", callback_data: "owner" }],
-    [{ text: "⭐ Rating", callback_data: "rate" }]
+    [{ text:"🔐 Encode", callback_data:"encode" }],
+    [{ text:"🔓 Decode", callback_data:"decode" }],
+    [{ text:"🛡 Obfuscate", callback_data:"obf" }],
+    [{ text:"👤 Owner", callback_data:"owner" }]
   ]
 };
+const BACK = { inline_keyboard:[[ { text:"🔙 Back", callback_data:"menu" } ]] };
 
-const BACK = {
-  inline_keyboard: [[{ text: "🔙 Back", callback_data: "menu" }]]
-};
-
-const RATING = {
-  inline_keyboard: [
-    [{ text: "⭐", callback_data: "rate_1" }],
-    [{ text: "⭐⭐", callback_data: "rate_2" }],
-    [{ text: "⭐⭐⭐", callback_data: "rate_3" }],
-    [{ text: "⭐⭐⭐⭐", callback_data: "rate_4" }],
-    [{ text: "⭐⭐⭐⭐⭐", callback_data: "rate_5" }],
-    [{ text: "🔙 Back", callback_data: "menu" }]
-  ]
-};
-
-/* ================= ENCODE (25+) ================= */
+/* ================= ENCODE (27) ================= */
 const ENC = {
-  b64: t => Buffer.from(t).toString("base64"),
-  b32: t => Buffer.from(t).toString("base64").replace(/=/g,""),
-  hex: t => Buffer.from(t).toString("hex"),
-  bin: t => [...t].map(c=>c.charCodeAt(0).toString(2)).join(" "),
-  oct: t => [...t].map(c=>c.charCodeAt(0).toString(8)).join(" "),
-  ascii: t => [...t].map(c=>c.charCodeAt(0)).join(","),
-  rot13: t => t.replace(/[a-z]/gi,c=>String.fromCharCode(c.charCodeAt(0)+(c.toLowerCase()<"n"?13:-13))),
-  rot47: t => t.replace(/./g,c=>{let a=c.charCodeAt(0);return a>=33&&a<=126?String.fromCharCode(33+((a+14)%94)):c}),
-  rev: t => t.split("").reverse().join(""),
-  url: t => encodeURIComponent(t),
-  html: t => t.replace(/./g,c=>`&#${c.charCodeAt(0)};`),
-  unicode: t => t.replace(/./g,c=>"\\u"+c.charCodeAt(0).toString(16)),
-  escape: t => escape(t),
-  json: t => JSON.stringify(t),
-  xor: t => Buffer.from([...t].map(c=>c.charCodeAt(0)^77)).toString("base64"),
-  caesar: t => [...t].map(c=>String.fromCharCode(c.charCodeAt(0)+5)).join(""),
-  md5: t => crypto.createHash("md5").update(t).digest("hex"),
-  sha1: t => crypto.createHash("sha1").update(t).digest("hex"),
-  sha256: t => crypto.createHash("sha256").update(t).digest("hex"),
-  multi: t => Buffer.from(Buffer.from(t).toString("base64").split("").reverse().join("")).toString("hex")
+  b64:t=>Buffer.from(t).toString("base64"),
+  b32:t=>Buffer.from(t).toString("base64").replace(/=/g,""),
+  hex:t=>Buffer.from(t).toString("hex"),
+  bin:t=>[...t].map(c=>c.charCodeAt(0).toString(2)).join(" "),
+  oct:t=>[...t].map(c=>c.charCodeAt(0).toString(8)).join(" "),
+  ascii:t=>[...t].map(c=>c.charCodeAt(0)).join(","),
+  rev:t=>t.split("").reverse().join(""),
+  rot13:t=>t.replace(/[a-z]/gi,c=>String.fromCharCode(c.charCodeAt(0)+(c.toLowerCase()<"n"?13:-13))),
+  rot47:t=>t.replace(/./g,c=>{let a=c.charCodeAt(0);return a>=33&&a<=126?String.fromCharCode(33+((a+14)%94)):c}),
+  caesar:t=>[...t].map(c=>String.fromCharCode(c.charCodeAt(0)+5)).join(""),
+  xor:t=>Buffer.from([...t].map(c=>c.charCodeAt(0)^77)).toString("base64"),
+  url:t=>encodeURIComponent(t),
+  html:t=>t.replace(/./g,c=>`&#${c.charCodeAt(0)};`),
+  unicode:t=>t.replace(/./g,c=>"\\u"+c.charCodeAt(0).toString(16)),
+  escape:t=>escape(t),
+  json:t=>JSON.stringify(t),
+  md5:t=>crypto.createHash("md5").update(t).digest("hex"),
+  sha1:t=>crypto.createHash("sha1").update(t).digest("hex"),
+  sha256:t=>crypto.createHash("sha256").update(t).digest("hex"),
+  sha512:t=>crypto.createHash("sha512").update(t).digest("hex"),
+  gzip:t=>zlib.gzipSync(t).toString("base64"),
+  deflate:t=>zlib.deflateSync(t).toString("base64"),
+  doubleb64:t=>Buffer.from(Buffer.from(t).toString("base64")).toString("base64"),
+  mirror:t=>{const m=t.length/2|0;return t.slice(0,m)+t.slice(m).split("").reverse().join("")},
+  multi:t=>Buffer.from(Buffer.from(t).toString("base64").split("").reverse().join("")).toString("hex")
 };
 
-/* ================= DECODE (20+) ================= */
+/* ================= DECODE (26) ================= */
 const DEC = {
-  b64: t => Buffer.from(t,"base64").toString(),
-  hex: t => Buffer.from(t,"hex").toString(),
-  bin: t => t.split(" ").map(b=>String.fromCharCode(parseInt(b,2))).join(""),
-  oct: t => t.split(" ").map(o=>String.fromCharCode(parseInt(o,8))).join(""),
-  ascii: t => t.split(",").map(n=>String.fromCharCode(n)).join(""),
-  rot13: ENC.rot13,
-  rot47: ENC.rot47,
-  rev: t => t.split("").reverse().join(""),
-  url: t => decodeURIComponent(t),
-  html: t => t.replace(/&#(\d+);/g,(m,g)=>String.fromCharCode(g)),
-  unicode: t => t.replace(/\\u([\d\w]{4})/gi,(m,g)=>String.fromCharCode(parseInt(g,16))),
-  unescape: t => unescape(t),
-  json: t => JSON.parse(t),
-  xor: t => [...Buffer.from(t,"base64")].map(c=>String.fromCharCode(c^77)).join(""),
-  caesar: t => [...t].map(c=>String.fromCharCode(c.charCodeAt(0)-5)).join(""),
-  multi: t => Buffer.from(Buffer.from(t,"hex").toString().split("").reverse().join(""),"base64").toString()
+  b64:t=>Buffer.from(t,"base64").toString(),
+  hex:t=>Buffer.from(t,"hex").toString(),
+  bin:t=>t.split(" ").map(b=>String.fromCharCode(parseInt(b,2))).join(""),
+  oct:t=>t.split(" ").map(o=>String.fromCharCode(parseInt(o,8))).join(""),
+  ascii:t=>t.split(",").map(n=>String.fromCharCode(n)).join(""),
+  rev:t=>t.split("").reverse().join(""),
+  rot13:ENC.rot13,
+  rot47:ENC.rot47,
+  caesar:t=>[...t].map(c=>String.fromCharCode(c.charCodeAt(0)-5)).join(""),
+  xor:t=>[...Buffer.from(t,"base64")].map(c=>String.fromCharCode(c^77)).join(""),
+  url:t=>decodeURIComponent(t),
+  html:t=>t.replace(/&#(\d+);/g,(m,g)=>String.fromCharCode(g)),
+  unicode:t=>t.replace(/\\u([\d\w]{4})/gi,(m,g)=>String.fromCharCode(parseInt(g,16))),
+  unescape:t=>unescape(t),
+  json:t=>JSON.parse(t),
+  gzip:t=>zlib.gunzipSync(Buffer.from(t,"base64")).toString(),
+  deflate:t=>zlib.inflateSync(Buffer.from(t,"base64")).toString(),
+  doubleb64:t=>Buffer.from(Buffer.from(t,"base64").toString(),"base64").toString(),
+  mirror:t=>{const m=t.length/2|0;return t.slice(0,m)+t.slice(m).split("").reverse().join("")},
+  multi:t=>Buffer.from(Buffer.from(t,"hex").toString().split("").reverse().join(""),"base64").toString(),
+  trim:t=>t.trim(),
+  lower:t=>t.toLowerCase(),
+  upper:t=>t.toUpperCase()
+};
+
+/* ================= OBF ================= */
+const OBF = {
+  js:c=>`eval(atob("${Buffer.from(c).toString("base64")}"))`,
+  html:c=>c.replace(/./g,x=>`&#${x.charCodeAt(0)};`),
+  py:c=>`import base64;exec(base64.b64decode("${Buffer.from(c).toString("base64")}"))`,
+  php:c=>`<?php eval(base64_decode("${Buffer.from(c).toString("base64")}")); ?>`
 };
