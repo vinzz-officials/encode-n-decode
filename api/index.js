@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 
     const update = req.body;
     const msg = update.message;
-    const cb = update.callback_query;
+    const cb  = update.callback_query;
 
     if (!msg && !cb) {
       res.status(200).end();
@@ -52,8 +52,8 @@ export default async function handler(req, res) {
     }
 
     const chatId = msg?.chat?.id || cb?.message?.chat?.id;
-    const msgId = cb?.message?.message_id;
-    const text = msg?.text || "";
+    const msgId  = cb?.message?.message_id;
+    const text   = msg?.text || "";
 
     if (!chatId) {
       res.status(200).end();
@@ -66,11 +66,14 @@ export default async function handler(req, res) {
         chatId,
 `<b>⚙️ Universal Encoder Toolkit</b>
 
-Powerful • Clean • Programmer Friendly
+All-in-one encode & decode bot for programmers.
 
-• 25+ Encode
-• 20+ Decode
-• Chain Encode/Decode`,
+• 🔐 25+ Encode
+• 🔓 20+ Decode
+• 🔗 Chain Encode / Decode
+• ⚡ Fast & Simple
+
+Use menu below to start.`,
         MAIN_MENU
       );
       res.status(200).end();
@@ -90,9 +93,71 @@ Everything you need. Nothing useless.`,
         );
       }
 
+      else if (d === "tools") {
+        await edit(chatId, msgId,
+`📚 <b>AVAILABLE TOOLS</b>
+
+Choose category below:`,
+          {
+            inline_keyboard: [
+              [{ text: "🔐 Encode Types", callback_data: "enc_list" }],
+              [{ text: "🔓 Decode Types", callback_data: "dec_list" }],
+              [{ text: "🔙 Back", callback_data: "menu" }]
+            ]
+          }
+        );
+      }
+
+      else if (d === "enc_list") {
+        await edit(chatId, msgId,
+`🔐 <b>ENCODE TYPES (25)</b>
+
+<b>Basic</b>
+• b64 • b32 • hex • bin • oct • ascii
+
+<b>Transform</b>
+• rev • rot13 • rot47 • caesar • xor
+
+<b>Web</b>
+• url • html • unicode • escape • json
+
+<b>Hash</b>
+• md5 • sha1 • sha256
+
+<b>Advanced</b>
+• multi • chain
+
+<code>/enc b64 hello</code>
+<code>/enc chain:b64|hex|rev hello</code>`,
+          BACK
+        );
+      }
+
+      else if (d === "dec_list") {
+        await edit(chatId, msgId,
+`🔓 <b>DECODE TYPES (20)</b>
+
+<b>Basic</b>
+• b64 • hex • bin • oct • ascii
+
+<b>Transform</b>
+• rev • rot13 • rot47 • caesar • xor
+
+<b>Web</b>
+• url • html • unicode • unescape • json
+
+<b>Advanced</b>
+• multi • chain
+
+<code>/dec b64 aGVsbG8=</code>
+<code>/dec chain:rev|hex|b64</code>`,
+          BACK
+        );
+      }
+
       else if (d === "owner") {
         await edit(chatId, msgId,
-`<b>👤 OWNER</b>
+`<b>👤 OWNER INFO</b>
 
 Name: ${OWNER.name}
 Telegram: ${OWNER.telegram}
@@ -227,6 +292,7 @@ const MAIN_MENU = {
   inline_keyboard: [
     [{ text: "🔐 Encode", callback_data: "encode" }],
     [{ text: "🔓 Decode", callback_data: "decode" }],
+    [{ text: "📚 Available Tools", callback_data: "tools" }],
     [{ text: "👤 Owner", callback_data: "owner" }],
     [{ text: "⭐ Rating", callback_data: "rate" }]
   ]
@@ -254,20 +320,20 @@ const ENC = {
   hex: t => Buffer.from(t).toString("hex"),
   bin: t => [...t].map(c=>c.charCodeAt(0).toString(2)).join(" "),
   oct: t => [...t].map(c=>c.charCodeAt(0).toString(8)).join(" "),
+  ascii: t => [...t].map(c=>c.charCodeAt(0)).join(","),
   rot13: t => t.replace(/[a-z]/gi,c=>String.fromCharCode(c.charCodeAt(0)+(c.toLowerCase()<"n"?13:-13))),
   rot47: t => t.replace(/./g,c=>{let a=c.charCodeAt(0);return a>=33&&a<=126?String.fromCharCode(33+((a+14)%94)):c}),
+  rev: t => t.split("").reverse().join(""),
   url: t => encodeURIComponent(t),
   html: t => t.replace(/./g,c=>`&#${c.charCodeAt(0)};`),
   unicode: t => t.replace(/./g,c=>"\\u"+c.charCodeAt(0).toString(16)),
-  rev: t => t.split("").reverse().join(""),
+  escape: t => escape(t),
+  json: t => JSON.stringify(t),
   xor: t => Buffer.from([...t].map(c=>c.charCodeAt(0)^77)).toString("base64"),
   caesar: t => [...t].map(c=>String.fromCharCode(c.charCodeAt(0)+5)).join(""),
-  ascii: t => [...t].map(c=>c.charCodeAt(0)).join(","),
   md5: t => crypto.createHash("md5").update(t).digest("hex"),
   sha1: t => crypto.createHash("sha1").update(t).digest("hex"),
   sha256: t => crypto.createHash("sha256").update(t).digest("hex"),
-  json: t => JSON.stringify(t),
-  escape: t => escape(t),
   multi: t => Buffer.from(Buffer.from(t).toString("base64").split("").reverse().join("")).toString("hex")
 };
 
@@ -277,16 +343,16 @@ const DEC = {
   hex: t => Buffer.from(t,"hex").toString(),
   bin: t => t.split(" ").map(b=>String.fromCharCode(parseInt(b,2))).join(""),
   oct: t => t.split(" ").map(o=>String.fromCharCode(parseInt(o,8))).join(""),
+  ascii: t => t.split(",").map(n=>String.fromCharCode(n)).join(""),
   rot13: ENC.rot13,
   rot47: ENC.rot47,
-  url: t => decodeURIComponent(t),
   rev: t => t.split("").reverse().join(""),
+  url: t => decodeURIComponent(t),
+  html: t => t.replace(/&#(\d+);/g,(m,g)=>String.fromCharCode(g)),
+  unicode: t => t.replace(/\\u([\d\w]{4})/gi,(m,g)=>String.fromCharCode(parseInt(g,16))),
+  unescape: t => unescape(t),
+  json: t => JSON.parse(t),
   xor: t => [...Buffer.from(t,"base64")].map(c=>String.fromCharCode(c^77)).join(""),
   caesar: t => [...t].map(c=>String.fromCharCode(c.charCodeAt(0)-5)).join(""),
-  ascii: t => t.split(",").map(n=>String.fromCharCode(n)).join(""),
-  unicode: t => t.replace(/\\u([\d\w]{4})/gi,(m,g)=>String.fromCharCode(parseInt(g,16))),
-  html: t => t.replace(/&#(\d+);/g,(m,g)=>String.fromCharCode(g)),
-  json: t => JSON.parse(t),
-  unescape: t => unescape(t),
   multi: t => Buffer.from(Buffer.from(t,"hex").toString().split("").reverse().join(""),"base64").toString()
 };
