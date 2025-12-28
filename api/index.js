@@ -60,24 +60,23 @@ export default async function handler(req, res) {
       return;
     }
 
-    /* ================= /start ================= */
+    /* ================= START ================= */
     if (text === "/start") {
       await send(
         chatId,
 `<b>⚙️ Universal Encoder Toolkit</b>
 
-All-in-one encode & decode bot for programmers.
+All-in-one encode & decode tools for programmers.
 
-• 🔐 25+ Encode
-• 🔓 20+ Decode
+• 🔐 25+ Encode Types
+• 🔓 20+ Decode Types
 • 🔗 Chain Encode / Decode
-• ⚡ Fast & Simple
+• ⚡ Fast & Clean UI
 
-Use menu below to start.`,
+Use the menu below.`,
         MAIN_MENU
       );
-      res.status(200).end();
-      return;
+      return res.status(200).end();
     }
 
     /* ================= CALLBACK ================= */
@@ -88,68 +87,44 @@ Use menu below to start.`,
         await edit(chatId, msgId,
 `<b>⚙️ Universal Encoder Toolkit</b>
 
-Everything you need. Nothing useless.`,
+Choose what you want to do.`,
           MAIN_MENU
         );
       }
 
-      else if (d === "tools") {
+      else if (d === "encode") {
         await edit(chatId, msgId,
-`📚 <b>AVAILABLE TOOLS</b>
+`🔐 <b>ENCODE</b>
 
-Choose category below:`,
-          {
-            inline_keyboard: [
-              [{ text: "🔐 Encode Types", callback_data: "enc_list" }],
-              [{ text: "🔓 Decode Types", callback_data: "dec_list" }],
-              [{ text: "🔙 Back", callback_data: "menu" }]
-            ]
-          }
-        );
-      }
+<b>Available Types</b>
+<code>b64 b32 hex bin oct ascii</code>
+<code>rev rot13 rot47 caesar xor</code>
+<code>url html unicode escape json</code>
+<code>md5 sha1 sha256 multi</code>
 
-      else if (d === "enc_list") {
-        await edit(chatId, msgId,
-`🔐 <b>ENCODE TYPES (25)</b>
-
-<b>Basic</b>
-• b64 • b32 • hex • bin • oct • ascii
-
-<b>Transform</b>
-• rev • rot13 • rot47 • caesar • xor
-
-<b>Web</b>
-• url • html • unicode • escape • json
-
-<b>Hash</b>
-• md5 • sha1 • sha256
-
-<b>Advanced</b>
-• multi • chain
-
+<b>Usage</b>
 <code>/enc b64 hello</code>
+
+<b>Chain</b>
 <code>/enc chain:b64|hex|rev hello</code>`,
           BACK
         );
       }
 
-      else if (d === "dec_list") {
+      else if (d === "decode") {
         await edit(chatId, msgId,
-`🔓 <b>DECODE TYPES (20)</b>
+`🔓 <b>DECODE</b>
 
-<b>Basic</b>
-• b64 • hex • bin • oct • ascii
+<b>Available Types</b>
+<code>b64 hex bin oct ascii</code>
+<code>rev rot13 rot47 caesar xor</code>
+<code>url html unicode unescape json</code>
+<code>multi</code>
 
-<b>Transform</b>
-• rev • rot13 • rot47 • caesar • xor
-
-<b>Web</b>
-• url • html • unicode • unescape • json
-
-<b>Advanced</b>
-• multi • chain
-
+<b>Usage</b>
 <code>/dec b64 aGVsbG8=</code>
+
+<b>Chain</b>
 <code>/dec chain:rev|hex|b64</code>`,
           BACK
         );
@@ -157,7 +132,7 @@ Choose category below:`,
 
       else if (d === "owner") {
         await edit(chatId, msgId,
-`<b>👤 OWNER INFO</b>
+`👤 <b>OWNER</b>
 
 Name: ${OWNER.name}
 Telegram: ${OWNER.telegram}
@@ -189,32 +164,7 @@ Rating: ${"⭐".repeat(star)}`
         );
       }
 
-      else if (d === "encode") {
-        await edit(chatId, msgId,
-`🔐 <b>ENCODE</b>
-
-<code>/enc &lt;type&gt; &lt;text&gt;</code>
-
-Chain:
-<code>/enc chain:b64|hex|rev hello</code>`,
-          BACK
-        );
-      }
-
-      else if (d === "decode") {
-        await edit(chatId, msgId,
-`🔓 <b>DECODE</b>
-
-<code>/dec &lt;type&gt; &lt;text&gt;</code>
-
-Chain:
-<code>/dec chain:b64|hex|rev</code>`,
-          BACK
-        );
-      }
-
-      res.status(200).end();
-      return;
+      return res.status(200).end();
     }
 
     /* ================= ENCODE ================= */
@@ -227,24 +177,21 @@ Chain:
         const chain = type.replace("chain:", "").split("|");
         for (const c of chain) {
           if (!ENC[c]) {
-            await send(chatId, `❌ Encode type '${c}' not found`);
-            res.status(200).end();
-            return;
+            await send(chatId, `❌ Unknown encode type: <code>${c}</code>`);
+            return res.status(200).end();
           }
           out = ENC[c](out);
         }
       } else {
         if (!ENC[type]) {
           await send(chatId, "❌ Encode type not found");
-          res.status(200).end();
-          return;
+          return res.status(200).end();
         }
         out = ENC[type](input);
       }
 
-      await send(chatId, `<b>Result:</b>\n<code>${out}</code>`);
-      res.status(200).end();
-      return;
+      await send(chatId, `<b>Result</b>\n<code>${out}</code>`);
+      return res.status(200).end();
     }
 
     /* ================= DECODE ================= */
@@ -257,33 +204,28 @@ Chain:
         const chain = type.replace("chain:", "").split("|").reverse();
         for (const c of chain) {
           if (!DEC[c]) {
-            await send(chatId, `❌ Decode type '${c}' not found`);
-            res.status(200).end();
-            return;
+            await send(chatId, `❌ Unknown decode type: <code>${c}</code>`);
+            return res.status(200).end();
           }
           out = DEC[c](out);
         }
       } else {
         if (!DEC[type]) {
           await send(chatId, "❌ Decode type not found");
-          res.status(200).end();
-          return;
+          return res.status(200).end();
         }
         out = DEC[type](input);
       }
 
-      await send(chatId, `<b>Result:</b>\n<code>${out}</code>`);
-      res.status(200).end();
-      return;
+      await send(chatId, `<b>Result</b>\n<code>${out}</code>`);
+      return res.status(200).end();
     }
 
     res.status(200).end();
-    return;
 
   } catch (err) {
     console.error("WEBHOOK ERROR:", err);
     res.status(200).end();
-    return;
   }
 }
 
@@ -292,7 +234,6 @@ const MAIN_MENU = {
   inline_keyboard: [
     [{ text: "🔐 Encode", callback_data: "encode" }],
     [{ text: "🔓 Decode", callback_data: "decode" }],
-    [{ text: "📚 Available Tools", callback_data: "tools" }],
     [{ text: "👤 Owner", callback_data: "owner" }],
     [{ text: "⭐ Rating", callback_data: "rate" }]
   ]
