@@ -2,7 +2,7 @@ import axios from "axios";
 import crypto from "crypto";
 import zlib from "zlib";
 
-/* ================= OWNER ================= */
+/* ================= OWNER CONFIG ================= */
 const OWNER = {
   id: "7777604508",
   name: "Vinzz Offc",
@@ -10,7 +10,7 @@ const OWNER = {
   whatsapp: "https://wa.me/6285185667890"
 };
 
-/* ================= HELPERS ================= */
+/* ================= UTIL ================= */
 const esc = t =>
   t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
@@ -56,13 +56,19 @@ export default async function handler(req, res) {
     /* ================= START ================= */
     if (text === "/start") {
       await send(chatId,
-`<b>⚙️ Universal Encoder Toolkit</b>
+`<b>🚀 NexaBot — Universal Encoder Toolkit</b>
 
-• 🔐 Encode 27+
-• 🔓 Decode 26+
-• 🛡 Obfuscator
-• 📎 Text & File Input
-• 🔗 Chain Support`,
+All-in-one Encode / Decode / Obfuscation bot.
+
+<b>Main Features</b>
+• 🔐 Encode (27+ types)
+• 🔓 Decode (26+ types)
+• 🛡 Code Obfuscator
+• 📎 Text & File Support
+• 🔗 Chain Encode / Decode
+• ⭐ Public Rating System
+
+Choose a menu below to start.`,
         MAIN_MENU
       );
       return res.status(200).end();
@@ -71,30 +77,98 @@ export default async function handler(req, res) {
     /* ================= CALLBACK ================= */
     if (cb) {
       const d = cb.data;
+
       if (d === "menu")
-        await edit(chatId,msgId,"<b>⚙️ Universal Encoder Toolkit</b>",MAIN_MENU);
+        await edit(chatId,msgId,"<b>🚀 NexaBot</b>\nSelect a feature below.",MAIN_MENU);
+
       else if (d === "encode")
         await edit(chatId,msgId,
 `🔐 <b>ENCODE</b>
-Reply text/file or:
+
+<b>Available Types</b>
+b64 b32 hex bin oct ascii  
+rev rot13 rot47 caesar xor  
+url html unicode escape json  
+md5 sha1 sha256 sha512  
+gzip deflate doubleb64 mirror multi
+
+<b>Usage</b>
 <code>/enc b64 hello</code>
-<code>/enc chain:b64|hex|rev</code>`,BACK);
+or reply text / file with:
+<code>/enc b64</code>
+
+<b>Chain</b>
+<code>/enc chain:b64|hex|rev</code>`,
+        BACK
+      );
+
       else if (d === "decode")
         await edit(chatId,msgId,
 `🔓 <b>DECODE</b>
-Reply text/file or:
+
+<b>Available Types</b>
+b64 hex bin oct ascii  
+rev rot13 rot47 caesar xor  
+url html unicode unescape json  
+gzip deflate doubleb64 mirror multi  
+trim lower upper
+
+<b>Usage</b>
 <code>/dec b64</code>
-<code>/dec chain:rev|hex</code>`,BACK);
+or reply text / file.
+
+<b>Chain</b>
+<code>/dec chain:rev|hex|b64</code>`,
+        BACK
+      );
+
       else if (d === "obf")
         await edit(chatId,msgId,
 `🛡 <b>OBFUSCATOR</b>
-<code>/obf js alert(1)</code>`,BACK);
+
+<b>Types</b>
+js html py php
+
+<b>Usage</b>
+<code>/obf js alert(1)</code>
+or reply text / file.
+
+<i>Obfuscation is one-way.</i>`,
+        BACK
+      );
+
       else if (d === "owner")
         await edit(chatId,msgId,
-`👤 <b>OWNER</b>
-${OWNER.name}
-${OWNER.telegram}
-${OWNER.whatsapp}`,BACK);
+`👤 <b>OWNER INFORMATION</b>
+
+Name: ${OWNER.name}
+Telegram: ${OWNER.telegram}
+WhatsApp: ${OWNER.whatsapp}`,
+        BACK
+      );
+
+      else if (d === "rate")
+        await edit(chatId,msgId,
+`⭐ <b>RATE NEXABOT</b>
+
+Your feedback helps improve this bot.`,
+        RATING
+      );
+
+      else if (d.startsWith("rate_")) {
+        const star = d.split("_")[1];
+        await send(
+          OWNER.id,
+`⭐ <b>New Rating</b>
+User ID: <code>${chatId}</code>
+Rating: ${"⭐".repeat(star)}`
+        );
+        await edit(chatId,msgId,
+          `✅ Thanks for rating NexaBot ${"⭐".repeat(star)}!`,
+          BACK
+        );
+      }
+
       return res.status(200).end();
     }
 
@@ -111,38 +185,40 @@ ${OWNER.whatsapp}`,BACK);
     /* ================= ENCODE ================= */
     if (text.startsWith("/enc ")) {
       const [, type, ...r] = text.split(" ");
-      let input = await resolveInput(r.join(" "));
-      if (!input) return send(chatId,"❌ No input");
+      const input = await resolveInput(r.join(" "));
+      if (!input) return send(chatId,"❌ No input provided.");
 
       let out = input;
       if (type.startsWith("chain:")) {
         for (const c of type.replace("chain:","").split("|")) {
-          if (!ENC[c]) return send(chatId,`❌ Encode ${c} not found`);
+          if (!ENC[c]) return send(chatId,`❌ Encode type '${c}' not found.`);
           out = ENC[c](out);
         }
       } else {
-        if (!ENC[type]) return send(chatId,"❌ Encode type not found");
+        if (!ENC[type]) return send(chatId,"❌ Encode type not found.");
         out = ENC[type](input);
       }
+
       return send(chatId, `<b>Result</b>\n<code>${esc(out)}</code>`);
     }
 
     /* ================= DECODE ================= */
     if (text.startsWith("/dec ")) {
       const [, type, ...r] = text.split(" ");
-      let input = await resolveInput(r.join(" "));
-      if (!input) return send(chatId,"❌ No input");
+      const input = await resolveInput(r.join(" "));
+      if (!input) return send(chatId,"❌ No input provided.");
 
       let out = input;
       if (type.startsWith("chain:")) {
         for (const c of type.replace("chain:","").split("|").reverse()) {
-          if (!DEC[c]) return send(chatId,`❌ Decode ${c} not found`);
+          if (!DEC[c]) return send(chatId,`❌ Decode type '${c}' not found.`);
           out = DEC[c](out);
         }
       } else {
-        if (!DEC[type]) return send(chatId,"❌ Decode type not found");
+        if (!DEC[type]) return send(chatId,"❌ Decode type not found.");
         out = DEC[type](input);
       }
+
       return send(chatId, `<b>Result</b>\n<code>${esc(out)}</code>`);
     }
 
@@ -150,14 +226,15 @@ ${OWNER.whatsapp}`,BACK);
     if (text.startsWith("/obf ")) {
       const [, type, ...r] = text.split(" ");
       const input = await resolveInput(r.join(" "));
-      if (!input || !OBF[type]) return send(chatId,"❌ Invalid obf");
+      if (!input || !OBF[type]) return send(chatId,"❌ Invalid obfuscation request.");
+
       return send(chatId, `<b>Obfuscated</b>\n<code>${esc(OBF[type](input))}</code>`);
     }
 
     res.status(200).end();
 
   } catch (e) {
-    console.error(e);
+    console.error("NexaBot Error:", e);
     res.status(200).end();
   }
 }
@@ -168,10 +245,22 @@ const MAIN_MENU = {
     [{ text:"🔐 Encode", callback_data:"encode" }],
     [{ text:"🔓 Decode", callback_data:"decode" }],
     [{ text:"🛡 Obfuscate", callback_data:"obf" }],
+    [{ text:"⭐ Rate NexaBot", callback_data:"rate" }],
     [{ text:"👤 Owner", callback_data:"owner" }]
   ]
 };
 const BACK = { inline_keyboard:[[ { text:"🔙 Back", callback_data:"menu" } ]] };
+
+const RATING = {
+  inline_keyboard: [
+    [{ text:"⭐", callback_data:"rate_1" }],
+    [{ text:"⭐⭐", callback_data:"rate_2" }],
+    [{ text:"⭐⭐⭐", callback_data:"rate_3" }],
+    [{ text:"⭐⭐⭐⭐", callback_data:"rate_4" }],
+    [{ text:"⭐⭐⭐⭐⭐", callback_data:"rate_5" }],
+    [{ text:"🔙 Back", callback_data:"menu" }]
+  ]
+};
 
 /* ================= ENCODE (27) ================= */
 const ENC = {
