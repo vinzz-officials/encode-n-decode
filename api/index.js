@@ -1,6 +1,8 @@
 import axios from "axios";
 import crypto from "crypto";
 import zlib from "zlib";
+import FormData from "form-data";
+
 
 /* ================= OWNER ================= */
 const OWNER = {
@@ -282,21 +284,23 @@ Rating: ${"⭐".repeat(star)}`
   return send(chatId, text, kb);
 }
 
-    async function sendAsFile(API, chatId, content) {
+    
+async function sendAsFile(API, chatId, content) {
   const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
   const filename = `result_${suffix}.txt`;
 
-  return axios.post(`${API}/sendDocument`, {
-    chat_id: chatId,
-    document: {
-      filename,
-      contentType: "text/plain",
-      data: Buffer.from(
-        content.replace(/<[^>]+>/g, "")
-      ).toString("base64")
-    }
+  const form = new FormData();
+  form.append("chat_id", chatId);
+  form.append(
+    "document",
+    Buffer.from(content.replace(/<[^>]+>/g, "")),
+    { filename }
+  );
+
+  return axios.post(`${API}/sendDocument`, form, {
+    headers: form.getHeaders()
   });
-}
+                    }
 
     /* ========== INPUT ========== */
     async function resolveInput(rest) {
