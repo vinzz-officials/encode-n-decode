@@ -11,7 +11,7 @@ const OWNER = {
   whatsapp: "https://wa.me/6285185667890"
 };
 
-/* ================= TELEGRAM LIMIT ================= */
+/* ================= CONSTANT ================= */
 const TG_LIMIT = 3900;
 
 /* ================= BASE32 RFC4648 ================= */
@@ -21,13 +21,11 @@ const BASE32 = {
     let bits = "";
     for (const b of Buffer.from(input))
       bits += b.toString(2).padStart(8, "0");
-
     let out = "";
-    for (let i = 0; i < bits.length; i += 5) {
+    for (let i = 0; i < bits.length; i += 5)
       out += this.alphabet[
         parseInt(bits.slice(i, i + 5).padEnd(5, "0"), 2)
       ];
-    }
     while (out.length % 8 !== 0) out += "=";
     return out;
   },
@@ -47,44 +45,31 @@ const BASE32 = {
 
 /* ================= UTILS ================= */
 const esc = t =>
-  t.replace(/&/g,"&amp;")
-   .replace(/</g,"&lt;")
-   .replace(/>/g,"&gt;");
+  t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
 async function getFileText(token, file_id) {
   const api = `https://api.telegram.org/bot${token}`;
   const f = await axios.get(`${api}/getFile?file_id=${file_id}`);
   const path = f.data.result.file_path;
   const file = await axios.get(
-    `https://api.telegram.org/file/bot${token}/${path}`,
+    `${api.replace("/bot","/file/bot")}/${path}`,
     { responseType: "arraybuffer" }
   );
   return Buffer.from(file.data).toString();
 }
 
-/* ================= SMART OUTPUT ================= */
-async function sendSmart(API, chatId, title, content, filename) {
-  content = String(content);
-
+function sendSmart(API, chatId, title, content, filename="result.txt") {
   if (content.length <= TG_LIMIT) {
     return axios.post(`${API}/sendMessage`, {
       chat_id: chatId,
-      text: `<b>${title}</b>\n<code>${esc(content)}</code>`,
-      parse_mode: "HTML"
+      parse_mode: "HTML",
+      text: `<b>${title}</b>\n<code>${esc(content)}</code>`
     });
   }
-
   const form = new FormData();
   form.append("chat_id", chatId);
-  form.append("document", Buffer.from(content), {
-    filename: filename || "result.txt"
-  });
-  form.append(
-    "caption",
-    `<b>${title}</b>\n(Output sent as file)`,
-  );
-  form.append("parse_mode", "HTML");
-
+  form.append("caption", title);
+  form.append("document", Buffer.from(content), filename);
   return axios.post(`${API}/sendDocument`, form, {
     headers: form.getHeaders()
   });
@@ -97,12 +82,10 @@ const MAIN_MENU = {
     [{ text:"🔓 Decode", callback_data:"decode" }],
     [{ text:"🛡 Obfuscate", callback_data:"obf" }],
     [{ text:"⭐ Rate NexaBot", callback_data:"rate" }],
-    [{ text:"👤 Owner", callback_data:"owner" }]
+    [{ text:"👤 About Owner", callback_data:"owner" }]
   ]
 };
-const BACK = {
-  inline_keyboard: [[{ text:"⬅ Back to Menu", callback_data:"menu" }]]
-};
+const BACK = { inline_keyboard: [[{ text:"⬅ Back to Main Menu", callback_data:"menu" }]] };
 const RATING = {
   inline_keyboard: [
     [{ text:"⭐", callback_data:"rate_1" }],
@@ -116,246 +99,242 @@ const RATING = {
 
 /* ================= HANDLER ================= */
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.status(200).json({ ok:true });
-    return;
-  }
+  if (req.method !== "POST") return res.status(200).json({ ok:true });
 
-  try {
-    const token = req.url.split("/").pop().split("?")[0];
-    if (!token || !req.body) return res.status(200).end();
+  const upd = req.body;
+  if (upd.edited_message) return res.status(200).end();
 
-    const API = `https://api.telegram.org/bot${token}`;
-    const upd = req.body;
+  const token = req.url.split("/").pop().split("?")[0];
+  if (!token) return res.status(200).end();
 
-    const msg = upd.message;
-    const cb  = upd.callback_query;
-    if (!msg && !cb) return res.status(200).end();
+  const API = `https://api.telegram.org/bot${token}`;
+  const msg = upd.message;
+  const cb  = upd.callback_query;
+  if (!msg && !cb) return res.status(200).end();
 
-    const chatId = msg?.chat?.id || cb?.message?.chat?.id;
-    const msgId  = cb?.message?.message_id;
-    const text   = msg?.text || "";
+  const chatId = msg?.chat?.id || cb?.message?.chat?.id;
+  const msgId  = cb?.message?.message_id;
+  const text   = msg?.text || "";
 
-    const send = (id, text, kb={}) =>
-      axios.post(`${API}/sendMessage`, {
-        chat_id:id,
-        text,
+  /* ⛔ END RESPONSE EARLY (ANTI LOOP) */
+  res.status(200).end();
+
+  /* ================= CALLBACK ================= */
+  if (cb) {
+    axios.post(`${API}/answerCallbackQuery`, { callback_query_id: cb.id }).catch(()=>{});
+    const d = cb.data;
+
+    if (d === "menu")
+      return axios.post(`${API}/editMessageText`, {
+        chat_id: chatId,
+        message_id: msgId,
         parse_mode:"HTML",
-        reply_markup:kb
-      });
-
-    const edit = async (id, mid, text, kb={}) => {
-      try {
-        await axios.post(`${API}/editMessageText`, {
-          chat_id:id,
-          message_id:mid,
-          text,
-          parse_mode:"HTML",
-          reply_markup:kb
-        });
-      } catch (e) {
-        if (e.response?.data?.description?.includes("message is not modified"))
-          return;
-        throw e;
-      }
-    };
-
-    const answerCb = id =>
-      axios.post(`${API}/answerCallbackQuery`, { callback_query_id:id });
-
-    /* ================= START ================= */
-    if (text === "/start") {
-      await send(chatId,
+        reply_markup: MAIN_MENU,
+        text:
 `<b>🚀 NexaBot</b>
 <i>Professional Encoder • Decoder • Obfuscator</i>
 
-🔐 27+ Encode Types
-🔓 26+ Decode Types
-🔗 Safe Chain Encoding
-🛡 Code Obfuscation
-📎 Text & File Support
+Select a tool below to continue.`
+      });
 
-<b>Select a feature below.</b>`,
-        MAIN_MENU
-      );
-      return res.status(200).end();
-    }
+    if (d === "encode")
+      return axios.post(`${API}/editMessageText`, {
+        chat_id: chatId,
+        message_id: msgId,
+        parse_mode:"HTML",
+        reply_markup: BACK,
+        text:
+`🔐 <b>ENCODER</b>
 
-    /* ================= CALLBACK ================= */
-    if (cb) {
-      await answerCb(cb.id);
-      const d = cb.data;
+Convert plain text or files into encoded formats.
 
-      if (d === "menu")
-        await edit(chatId, msgId,
-`<b>🚀 NexaBot</b>
-Select a feature below.`,
-          MAIN_MENU
-        );
-
-      else if (d === "encode")
-        await edit(chatId, msgId,
-`🔐 <b>ENCODE</b>
-
-Usage:
+<b>Usage</b>
 <code>/enc &lt;type&gt; &lt;text&gt;</code>
-<code>/enc &lt;type&gt;</code> (reply text/file)
+<code>/enc &lt;type&gt;</code> (reply to message/file)
 
-Chain:
+<b>Chain Encoding</b>
 <code>/enc chain:type1|type2|type3</code>
 
-Types:
-b64 b32 hex bin oct ascii
-rev rot13 rot47 caesar xor mirror
-url html unicode escape json
-md5 sha1 sha256 sha512
-gzip deflate
-doubleb64 multi`,
-          BACK
-        );
+<b>Supported Types</b>
+b64 b32 hex bin oct ascii  
+rev rot13 rot47 caesar xor mirror  
+url html unicode escape json  
+md5 sha1 sha256 sha512  
+gzip deflate  
+doubleb64 multi`
+      });
 
-      else if (d === "decode")
-        await edit(chatId, msgId,
-`🔓 <b>DECODE</b>
+    if (d === "decode")
+      return axios.post(`${API}/editMessageText`, {
+        chat_id: chatId,
+        message_id: msgId,
+        parse_mode:"HTML",
+        reply_markup: BACK,
+        text:
+`🔓 <b>DECODER</b>
 
-Usage:
+Restore encoded data back to readable form.
+
+<b>Usage</b>
 <code>/dec &lt;type&gt; &lt;text&gt;</code>
-<code>/dec &lt;type&gt;</code> (reply text/file)
+<code>/dec &lt;type&gt;</code> (reply to message/file)
 
-Chain:
+<b>Chain Decoding</b>
 <code>/dec chain:type3|type2|type1</code>
 
-Types:
-b64 b32 hex bin oct ascii
-rev rot13 rot47 caesar xor mirror
-url html unicode unescape json
-gzip deflate
-doubleb64 multi
-trim lower upper`,
-          BACK
-        );
+<b>Supported Types</b>
+b64 b32 hex bin oct ascii  
+rev rot13 rot47 caesar xor mirror  
+url html unicode unescape json  
+gzip deflate  
+doubleb64 multi  
+trim lower upper`
+      });
 
-      else if (d === "obf")
-        await edit(chatId, msgId,
-`🛡 <b>OBFUSCATOR</b>
+    if (d === "obf")
+      return axios.post(`${API}/editMessageText`, {
+        chat_id: chatId,
+        message_id: msgId,
+        parse_mode:"HTML",
+        reply_markup: BACK,
+        text:
+`🛡 <b>CODE OBFUSCATION</b>
 
-Usage:
+Protect source code by making it harder to read.
+
+<b>Usage</b>
 <code>/obf &lt;type&gt; &lt;code&gt;</code>
 <code>/obf &lt;type&gt;</code> (reply)
 
-Types:
-js html py php`,
-          BACK
-        );
+<b>Languages</b>
+js, html, python, php
 
-      else if (d === "owner")
-        await edit(chatId, msgId,
-`👤 <b>OWNER</b>
+<i>Obfuscation is one-way and irreversible.</i>`
+      });
+
+    if (d === "owner")
+      return axios.post(`${API}/editMessageText`, {
+        chat_id: chatId,
+        message_id: msgId,
+        parse_mode:"HTML",
+        reply_markup: BACK,
+        text:
+`👤 <b>ABOUT THE DEVELOPER</b>
 
 <b>${OWNER.name}</b>
-Telegram: ${OWNER.telegram}
-WhatsApp: ${OWNER.whatsapp}`,
-          BACK
-        );
 
-      else if (d === "rate")
-        await edit(chatId, msgId,
-`⭐ <b>Rate NexaBot</b>
-Your feedback helps improve this project.`,
-          RATING
-        );
+Telegram: ${OWNER.telegram}  
+WhatsApp: ${OWNER.whatsapp}
 
-      else if (d.startsWith("rate_")) {
-        const star = d.split("_")[1];
-        await send(OWNER.id,
-`⭐ New Rating
-User: ${chatId}
-Rating: ${"⭐".repeat(star)}`
-        );
-        await edit(chatId, msgId,
-`✅ Thanks for rating NexaBot ${"⭐".repeat(star)}!`,
-          BACK
-        );
-      }
-      return res.status(200).end();
+Independent developer focused on
+automation, tooling, and security research.`
+      });
+
+    if (d === "rate")
+      return axios.post(`${API}/editMessageText`, {
+        chat_id: chatId,
+        message_id: msgId,
+        parse_mode:"HTML",
+        reply_markup: RATING,
+        text:
+`⭐ <b>RATE NEXABOT</b>
+
+Your feedback helps improve stability,
+features, and long-term maintenance.`
+      });
+
+    if (d.startsWith("rate_")) {
+      const s = d.split("_")[1];
+      axios.post(`${API}/sendMessage`, {
+        chat_id: OWNER.id,
+        text:`⭐ New Rating\nUser: ${chatId}\nRating: ${"⭐".repeat(s)}`
+      }).catch(()=>{});
+      return axios.post(`${API}/editMessageText`, {
+        chat_id: chatId,
+        message_id: msgId,
+        parse_mode:"HTML",
+        reply_markup: BACK,
+        text:`✅ Thank you for rating NexaBot ${"⭐".repeat(s)}`
+      });
     }
+  }
 
-    /* ================= INPUT ================= */
-    async function resolveInput(rest) {
-      if (rest && rest.trim()) return rest;
-      if (!msg?.reply_to_message) return null;
-      const r = msg.reply_to_message;
-      if (r.text) return r.text;
-      if (r.document) return await getFileText(token, r.document.file_id);
-      return null;
+  /* ================= INPUT ================= */
+  async function resolveInput(rest) {
+    if (rest) return rest;
+    const r = msg?.reply_to_message;
+    if (!r) return null;
+    if (r.text) return r.text;
+    if (r.document) return await getFileText(token, r.document.file_id);
+    return null;
+  }
+
+  function parseChain(str) {
+    if (!str.startsWith("chain:")) return null;
+    if (/[^a-z0-9_|:]/i.test(str)) return null;
+    return str.replace("chain:","").split("|").filter(Boolean);
+  }
+
+  function runChain(map, chain, input) {
+    let out = input;
+    for (const step of chain) {
+      if (!map[step]) return { error: step };
+      out = map[step](out);
+      if (!out) return { error: step };
     }
+    return { out };
+  }
 
-    function parseChain(str) {
-      if (!str.startsWith("chain:")) return null;
-      if (/[^a-z0-9_|:]/i.test(str)) return null;
-      return str.replace("chain:","").split("|").filter(Boolean);
-    }
+  /* ================= COMMANDS ================= */
+  (async ()=>{
+    if (text === "/start")
+      return axios.post(`${API}/sendMessage`, {
+        chat_id: chatId,
+        parse_mode:"HTML",
+        reply_markup: MAIN_MENU,
+        text:
+`<b>🚀 NexaBot</b>
+<i>Universal Encoding & Decoding Utility</i>
 
-    function runChain(map, chain, input) {
-      let out = input;
-      for (const step of chain) {
-        if (!map[step]) return { error:step };
-        out = map[step](out);
-        if (!out || typeof out !== "string") return { error:step };
-      }
-      return { out };
-    }
+Designed for developers who need
+fast, reliable, and flexible data tools.
 
-    /* ================= ENCODE ================= */
+• 27+ Encode Types
+• 26+ Decode Types
+• Chain Support
+• File Processing`
+      });
+
     if (text.startsWith("/enc ")) {
       const [, type, ...r] = text.split(" ");
       const input = await resolveInput(r.join(" "));
-      if (!input) return send(chatId,"❌ No input provided.");
-
+      if (!input) return;
       if (type.startsWith("chain:")) {
-        const chain = parseChain(type);
-        if (!chain) return send(chatId,"❌ Invalid chain format.");
-        const r2 = runChain(ENC, chain, input);
-        if (r2.error) return send(chatId,`❌ Encode failed at <b>${r2.error}</b>.`);
-        return sendSmart(API, chatId, "Encoded Result", r2.out, "encoded_chain.txt");
+        const c = parseChain(type);
+        if (!c) return;
+        const r2 = runChain(ENC, c, input);
+        if (r2.error) return;
+        return sendSmart(API, chatId, "Encoded Output", r2.out);
       }
-
-      if (!ENC[type]) return send(chatId,"❌ Encode type not found.");
-      return sendSmart(API, chatId, "Encoded Result", ENC[type](input), `encoded_${type}.txt`);
+      if (!ENC[type]) return;
+      return sendSmart(API, chatId, "Encoded Output", ENC[type](input));
     }
 
-    /* ================= DECODE ================= */
     if (text.startsWith("/dec ")) {
       const [, type, ...r] = text.split(" ");
       const input = await resolveInput(r.join(" "));
-      if (!input) return send(chatId,"❌ No input provided.");
-
+      if (!input) return;
       if (type.startsWith("chain:")) {
-        const chain = parseChain(type);
-        if (!chain) return send(chatId,"❌ Invalid chain format.");
-        const r2 = runChain(DEC, [...chain].reverse(), input);
-        if (r2.error) return send(chatId,`❌ Decode failed at <b>${r2.error}</b>.`);
-        return sendSmart(API, chatId, "Decoded Result", r2.out, "decoded_chain.txt");
+        const c = parseChain(type);
+        if (!c) return;
+        const r2 = runChain(DEC, [...c].reverse(), input);
+        if (r2.error) return;
+        return sendSmart(API, chatId, "Decoded Output", r2.out);
       }
-
-      if (!DEC[type]) return send(chatId,"❌ Decode type not found.");
-      return sendSmart(API, chatId, "Decoded Result", DEC[type](input), `decoded_${type}.txt`);
+      if (!DEC[type]) return;
+      return sendSmart(API, chatId, "Decoded Output", DEC[type](input));
     }
-
-    /* ================= OBF ================= */
-    if (text.startsWith("/obf ")) {
-      const [, type, ...r] = text.split(" ");
-      const input = await resolveInput(r.join(" "));
-      if (!input || !OBF[type]) return send(chatId,"❌ Invalid obfuscation request.");
-      return sendSmart(API, chatId, "Obfuscated Output", OBF[type](input), `obf_${type}.txt`);
-    }
-
-    return res.status(200).end();
-
-  } catch (e) {
-    console.error("NexaBot Fatal:", e);
-    return res.status(200).end();
-  }
+  })().catch(console.error);
 }
 
 /* ================= ENCODE ================= */
