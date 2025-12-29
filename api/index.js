@@ -10,6 +10,8 @@ const OWNER = {
   whatsapp: "https://wa.me/6285185667890"
 };
 
+const MAX_TG_CHARS = 3000;
+
 /* ================= BASE32 RFC4648 ================= */
 const BASE32 = {
   alphabet: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
@@ -134,16 +136,18 @@ export default async function handler(req, res) {
     /* ========== START ========== */
     if (text === "/start") {
       await send(chatId,
-`<b>🚀 NexaBot</b>
-<i>Powerfull Encoder • Decoder • Obfuscator</i>
+`<b>🚀 NEXABOT</b>
+<i>Encoder • Decoder • Obfuscator Toolkit</i>
 
-• 🔐 27+ Encode Types
-• 🔓 26+ Decode Types
-• 🔗 Safe Chain Encoding
-• 🛡 Code Obfuscation
-• 📎 Text & File Support
+━━━━━━━━━━━━━━
+▸ 🔐 <b>27+ Encode Methods</b>
+▸ 🔓 <b>26+ Decode Methods</b>
+▸ 🔗 <b>Chain Encoding</b>
+▸ 🛡 <b>Code Obfuscation</b>
+▸ 📎 <b>Text & File Support</b>
+━━━━━━━━━━━━━━
 
-<b>Select a feature below.</b>`,
+↳ <i>Select a feature below</i>`,
         MAIN_MENU
       );
       res.status(200).end();
@@ -160,69 +164,97 @@ export default async function handler(req, res) {
 
       else if (d === "encode")
         await edit(chatId, msgId,
-`🔐 <b>ENCODE</b>
+`🔐 <b>ENCODE MODULE</b>
+━━━━━━━━━━━━━━
 
+▸ <b>Usage</b>
 <code>/enc &lt;type&gt; &lt;text&gt;</code>
-<code>/enc &lt;type&gt;</code> (reply text/file)
+<code>/enc &lt;type&gt;</code> (reply text / file)
 
-<b>Chain</b>
+▸ <b>Chain Encode</b>
 <code>/enc chain:type1|type2|type3</code>
 
-<b>Types</b>
-b64 b32 hex bin oct ascii
-rev rot13 rot47 caesar xor mirror
-url html unicode escape json
-md5 sha1 sha256 sha512
-gzip deflate
-doubleb64 multi`,
+▸ <b>Available Types</b>
+b64 • b32 • hex • bin • oct • ascii  
+rev • rot13 • rot47 • caesar • xor • mirror  
+url • html • unicode • escape • json  
+md5 • sha1 • sha256 • sha512  
+gzip • deflate • doubleb64 • multi
+
+━━━━━━━━━━━━━━
+↳ <i>Fast • Secure</i>`,
           BACK
         );
 
       else if (d === "decode")
         await edit(chatId, msgId,
-`🔓 <b>DECODE</b>
+`🔓 <b>DECODE MODULE</b>
+━━━━━━━━━━━━━━
 
+▸ <b>Usage</b>
 <code>/dec &lt;type&gt; &lt;text&gt;</code>
-<code>/dec &lt;type&gt;</code> (reply text/file)
+<code>/dec &lt;type&gt;</code> (reply text / file)
 
-<b>Chain</b>
+▸ <b>Chain Decode</b>
 <code>/dec chain:type3|type2|type1</code>
 
-<b>Types</b>
-b64 b32 hex bin oct ascii
-rev rot13 rot47 caesar xor mirror
-url html unicode unescape json
-gzip deflate
-doubleb64 multi
-trim lower upper`,
+▸ <b>Available Types</b>
+b64 • b32 • hex • bin • oct • ascii  
+rev • rot13 • rot47 • caesar • xor • mirror  
+url • html • unicode • unescape • json  
+gzip • deflate • doubleb64 • multi  
+trim • lower • upper
+
+━━━━━━━━━━━━━━
+↳ <i>Fast • Accurate</i>`,
           BACK
         );
 
       else if (d === "obf")
         await edit(chatId, msgId,
-`🛡 <b>OBFUSCATOR</b>
+`🛡 <b>CODE OBFUSCATOR</b>
+━━━━━━━━━━━━━━
 
+▸ <b>Usage</b>
 <code>/obf &lt;type&gt; &lt;code&gt;</code>
 <code>/obf &lt;type&gt;</code> (reply)
 
-Types: js html py php`,
+▸ <b>Supported Languages</b>
+• JavaScript
+• HTML
+• Python
+• PHP
+
+━━━━━━━━━━━━━━
+⚠ <i>For educational & protection use</i>`,
           BACK
         );
 
       else if (d === "owner")
         await edit(chatId, msgId,
-`👤 <b>OWNER</b>
+`👤 <b>BOT OWNER</b>
+━━━━━━━━━━━━━━
 
 <b>${OWNER.name}</b>
-Telegram: ${OWNER.telegram}
-WhatsApp: ${OWNER.whatsapp}`,
+
+✈ Telegram : ${OWNER.telegram}
+📞 WhatsApp : ${OWNER.whatsapp}
+
+━━━━━━━━━━━━━━
+↳ <i>Feel free to contact</i>`,
           BACK
         );
 
       else if (d === "rate")
         await edit(chatId, msgId,
-`⭐ <b>Rate NexaBot</b>
-Your feedback helps improve this project.`,
+`⭐ <b>RATE NEXABOT</b>
+━━━━━━━━━━━━━━
+
+Your feedback helps improve
+performance & features ✨
+
+━━━━━━━━━━━━━━
+↳ <i>Tap stars below</i>`,
           RATING
         );
 
@@ -242,6 +274,29 @@ Rating: ${"⭐".repeat(star)}`
       res.status(200).end();
       return;
     }
+    
+    async function sendSafe(API, chatId, text, kb={}, send) {
+  if (typeof text === "string" && text.length > MAX_TG_CHARS) {
+    return sendAsFile(API, chatId, text);
+  }
+  return send(chatId, text, kb);
+}
+
+    async function sendAsFile(API, chatId, content) {
+  const suffix = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const filename = `result_${suffix}.txt`;
+
+  return axios.post(`${API}/sendDocument`, {
+    chat_id: chatId,
+    document: {
+      filename,
+      contentType: "text/plain",
+      data: Buffer.from(
+        content.replace(/<[^>]+>/g, "")
+      ).toString("base64")
+    }
+  });
+}
 
     /* ========== INPUT ========== */
     async function resolveInput(rest) {
@@ -294,7 +349,16 @@ Rating: ${"⭐".repeat(star)}`
           res.status(200).end();
           return;
         }
-        await send(chatId, `<b>Encoded Result</b>\n<code>${esc(r2.out)}</code>`);
+        await sendSafe(
+  API,
+  chatId,
+`✨ <b>ENCODE RESULT</b>
+━━━━━━━━━━━━━━
+<code>${esc(r2.out)}</code>
+━━━━━━━━━━━━━━`,
+  {},
+  send
+);
         res.status(200).end();
         return;
       }
@@ -305,7 +369,16 @@ Rating: ${"⭐".repeat(star)}`
         return;
       }
 
-      await send(chatId, `<b>Encoded Result</b>\n<code>${esc(ENC[type](input))}</code>`);
+      await sendSafe(
+  API,
+  chatId,
+`✨ <b>ENCODE RESULT</b>
+━━━━━━━━━━━━━━
+<code>${esc(ENC[type](input))}</code>
+━━━━━━━━━━━━━━`,
+  {},
+  send
+);
       res.status(200).end();
       return;
     }
@@ -333,7 +406,16 @@ Rating: ${"⭐".repeat(star)}`
           res.status(200).end();
           return;
         }
-        await send(chatId, `<b>Decoded Result</b>\n<code>${esc(r2.out)}</code>`);
+        await sendSafe(
+  API,
+  chatId,
+`✨ <b>DECODE RESULT</b>
+━━━━━━━━━━━━━━
+<code>${esc(r2.out)}</code>
+━━━━━━━━━━━━━━`,
+  {},
+  send
+);
         res.status(200).end();
         return;
       }
@@ -344,7 +426,16 @@ Rating: ${"⭐".repeat(star)}`
         return;
       }
 
-      await send(chatId, `<b>Decoded Result</b>\n<code>${esc(DEC[type](input))}</code>`);
+      await sendSafe(
+  API,
+  chatId,
+`✨ <b>DECODE RESULT</b>
+━━━━━━━━━━━━━━
+<code>${esc(DEC[type](input))}</code>
+━━━━━━━━━━━━━━`,
+  {},
+  send
+);
       res.status(200).end();
       return;
     }
@@ -358,10 +449,16 @@ Rating: ${"⭐".repeat(star)}`
         res.status(200).end();
         return;
       }
-      await send(chatId,
-`<b>Obfuscated Output</b>
-<code>${esc(OBF[type](input))}</code>`
-      );
+      await sendSafe(
+  API,
+  chatId,
+`✨ <b>OBFUSCATED OUTPUT</b>
+━━━━━━━━━━━━━━
+<code>${esc(OBF[type](input))}</code>
+━━━━━━━━━━━━━━`,
+  {},
+  send
+);
       res.status(200).end();
       return;
     }
