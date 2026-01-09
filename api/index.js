@@ -535,15 +535,12 @@ const DEC = {
 /* ================= OBF ================= */
 /* ================= REAL OBF ================= */
 function layerEncrypt(code) {
-  // 1. gzip
-  let a = zlib.gzipSync(code).toString("base64");
+  let a = Buffer.from(code).toString("base64");
 
-  // 2. custom xor
   a = [...a].map(c =>
     String.fromCharCode(c.charCodeAt(0) ^ 23)
   ).join("");
 
-  // 3. reverse + split
   a = a.split("").reverse().join("")
        .match(/.{1,4}/g).join("|");
 
@@ -574,9 +571,7 @@ function _x(p){
  p=p.split("|").join("");
  p=p.split("").reverse().join("");
  p=[...p].map(c=>String.fromCharCode(c.charCodeAt(0)^23)).join("");
- return require("zlib")
-  .gunzipSync(Buffer.from(p,"base64"))
-  .toString();
+ return Buffer.from(p,"base64").toString();
 }
 eval(_x(_d));
 
