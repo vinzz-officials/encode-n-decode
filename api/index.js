@@ -533,9 +533,86 @@ const DEC = {
 };
 
 /* ================= OBF ================= */
+/* ================= REAL OBF ================= */
+function layerEncrypt(code) {
+  // 1. gzip
+  let a = zlib.gzipSync(code).toString("base64");
+
+  // 2. custom xor
+  a = [...a].map(c =>
+    String.fromCharCode(c.charCodeAt(0) ^ 23)
+  ).join("");
+
+  // 3. reverse + split
+  a = a.split("").reverse().join("")
+       .match(/.{1,4}/g).join("|");
+
+  return a;
+}
+
+function layerDecrypt(payload) {
+  let a = payload.split("|").join("");
+  a = a.split("").reverse().join("");
+
+  a = [...a].map(c =>
+    String.fromCharCode(c.charCodeAt(0) ^ 23)
+  ).join("");
+
+  return zlib.gunzipSync(
+    Buffer.from(a,"base64")
+  ).toString();
+}
+
 const OBF = {
-  js:c=>`eval(atob("${Buffer.from(c).toString("base64")}"))`,
-  html:c=>c.replace(/./g,x=>`&#${x.charCodeAt(0)};`),
-  py:c=>`import base64;exec(base64.b64decode("${Buffer.from(c).toString("base64")}"))`,
-  php:c=>`<?php eval(base64_decode("${Buffer.from(c).toString("base64")}")); ?>`
+  js:c=>{
+    const enc = layerEncrypt(c);
+    return `
+(()=>{
+
+const _d="${enc}";
+function _x(p){
+ p=p.split("|").join("");
+ p=p.split("").reverse().join("");
+ p=[...p].map(c=>String.fromCharCode(c.charCodeAt(0)^23)).join("");
+ return require("zlib")
+  .gunzipSync(Buffer.from(p,"base64"))
+  .toString();
+}
+eval(_x(_d));
+
+})();`.trim();
+  },
+
+  py:c=>{
+    const enc = layerEncrypt(c);
+    return `
+import base64,zlib
+d="${enc}"
+d=d.replace("|","")[::-1]
+d="".join(chr(ord(x)^23) for x in d)
+exec(zlib.decompress(base64.b64decode(d)))
+`.trim();
+  },
+
+  php:c=>{
+    const enc = layerEncrypt(c);
+    return `
+<?php
+$d="${enc}";
+$d=str_replace("|","",$d);
+$d=strrev($d);
+$out="";
+for($i=0;$i<strlen($d);$i++)
+ $out.=chr(ord($d[$i])^23);
+
+eval(gzuncompress(base64_decode($out)));
+?>
+`.trim();
+  },
+
+  html:c=>{
+    return c.replace(/./g,x=>
+      `&#${x.charCodeAt(0)+Math.floor(Math.random()*3)};`
+    );
+  }
 };
