@@ -566,7 +566,7 @@ const OBF = {
     return `
 (()=>{
 
-const _d="${enc}";
+const _d=`${enc}`;
 function _x(p){
  p=p.split("|").join("");
  p=p.split("").reverse().join("");
