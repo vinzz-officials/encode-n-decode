@@ -561,12 +561,13 @@ function layerDecrypt(payload) {
 }
 
 const OBF = {
-  js:c=>{
+
+  // ===== JS =====
+  js: c => {
     const enc = layerEncrypt(c);
     return `
 (()=>{
-
-const _d=`${enc}`;
+const _d=${JSON.stringify(enc)};
 function _x(p){
  p=p.split("|").join("");
  p=p.split("").reverse().join("");
@@ -574,40 +575,43 @@ function _x(p){
  return Buffer.from(p,"base64").toString();
 }
 eval(_x(_d));
-
 })();`.trim();
   },
 
-  py:c=>{
+  // ===== PYTHON =====
+  py: c => {
     const enc = layerEncrypt(c);
     return `
-import base64,zlib
-d="${enc}"
+import base64
+
+d=${JSON.stringify(enc)}
 d=d.replace("|","")[::-1]
 d="".join(chr(ord(x)^23) for x in d)
-exec(zlib.decompress(base64.b64decode(d)))
+exec(base64.b64decode(d))
 `.trim();
   },
 
-  php:c=>{
+  // ===== PHP =====
+  php: c => {
     const enc = layerEncrypt(c);
     return `
 <?php
-$d="${enc}";
+$d=${JSON.stringify(enc)};
 $d=str_replace("|","",$d);
 $d=strrev($d);
 $out="";
 for($i=0;$i<strlen($d);$i++)
- $out.=chr(ord($d[$i])^23);
+  $out.=chr(ord($d[$i])^23);
 
-eval(gzuncompress(base64_decode($out)));
+eval(base64_decode($out));
 ?>
 `.trim();
   },
 
-  html:c=>{
+  // ===== HTML (unchanged) =====
+  html: c => {
     return c.replace(/./g,x=>
-      `&#${x.charCodeAt(0)+Math.floor(Math.random()*3)};`
+      \`&#\${x.charCodeAt(0)+Math.floor(Math.random()*3)};\`
     );
   }
 };
