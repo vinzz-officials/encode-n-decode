@@ -562,56 +562,52 @@ function layerDecrypt(payload) {
 
 const OBF = {
 
-  // ===== JS =====
-  js: c => {
-    const enc = layerEncrypt(c);
-    return `
-(()=>{
-const _d=${JSON.stringify(enc)};
-function _x(p){
- p=p.split("|").join("");
- p=p.split("").reverse().join("");
- p=[...p].map(c=>String.fromCharCode(c.charCodeAt(0)^23)).join("");
- return Buffer.from(p,"base64").toString();
+js: c => {
+  const enc = layerEncrypt(c);
+
+  return "(function(){\n" +
+    "const _d=" + JSON.stringify(enc) + ";\n" +
+    "function _x(p){\n" +
+    " p=p.split('|').join('');\n" +
+    " p=p.split('').reverse().join('');\n" +
+    " p=[...p].map(c=>String.fromCharCode(c.charCodeAt(0)^23)).join('');\n" +
+    " return Buffer.from(p,'base64').toString();\n" +
+    "}\n" +
+    "eval(_x(_d));\n" +
+  "})();";
+},
+
+py: c => {
+  const enc = layerEncrypt(c);
+  return (
+"import base64\n" +
+"d=" + JSON.stringify(enc) + "\n" +
+"d=d.replace('|','')[::-1]\n" +
+"d=''.join(chr(ord(x)^23) for x in d)\n" +
+"exec(base64.b64decode(d))"
+  );
+},
+
+php: c => {
+  const enc = layerEncrypt(c);
+  return (
+"<?php\n" +
+"$d=" + JSON.stringify(enc) + ";\n" +
+"$d=str_replace('|','',$d);\n" +
+"$d=strrev($d);\n" +
+"$out='';\n" +
+"for($i=0;$i<strlen($d);$i++){\n" +
+" $out.=chr(ord($d[$i])^23);\n" +
+"}\n" +
+"eval(base64_decode($out));\n" +
+"?>"
+  );
+},
+
+html: c => {
+  return c.replace(/./g,x =>
+    `&#${x.charCodeAt(0)+Math.floor(Math.random()*3)};`
+  );
 }
-eval(_x(_d));
-})();`.trim();
-  },
 
-  // ===== PYTHON =====
-  py: c => {
-    const enc = layerEncrypt(c);
-    return `
-import base64
-
-d=${JSON.stringify(enc)}
-d=d.replace("|","")[::-1]
-d="".join(chr(ord(x)^23) for x in d)
-exec(base64.b64decode(d))
-`.trim();
-  },
-
-  // ===== PHP =====
-  php: c => {
-    const enc = layerEncrypt(c);
-    return `
-<?php
-$d=${JSON.stringify(enc)};
-$d=str_replace("|","",$d);
-$d=strrev($d);
-$out="";
-for($i=0;$i<strlen($d);$i++)
-  $out.=chr(ord($d[$i])^23);
-
-eval(base64_decode($out));
-?>
-`.trim();
-  },
-
-  // ===== HTML (unchanged) =====
-  html: c => {
-    return c.replace(/./g,x=>
-      \`&#\${x.charCodeAt(0)+Math.floor(Math.random()*3)};\`
-    );
-  }
 };
