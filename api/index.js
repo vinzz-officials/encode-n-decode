@@ -534,24 +534,30 @@ const DEC = {
 
 /* ================= OBF ================= */
 function layerEncrypt(code){
-  const k = Math.floor(Math.random()*50)+50;
+  const key = Math.floor(Math.random()*60)+60;
 
-  let s = [...code].map((c,i)=>
-    String.fromCharCode(
-      c.charCodeAt(0) ^ (k + (i % 7))
-    )
-  ).join("");
+  // bikin charset aman
+  let s = encodeURIComponent(code);
 
+  // XOR brutal
   s = [...s].map((c,i)=>
     String.fromCharCode(
-      c.charCodeAt(0) + (i % 3)
+      c.charCodeAt(0) ^ (key + (i % 7))
     )
   ).join("");
 
-  s = s.split("").reverse().join("")
-       .match(/.{1,3}/g).join("|");
+  // shift tambahan
+  s = [...s].map((c,i)=>
+    String.fromCharCode(
+      c.charCodeAt(0) + (i % 4)
+    )
+  ).join("");
 
-  return k+"#"+s;
+  // reverse + pecah
+  s = s.split("").reverse().join("")
+       .match(/.{1,4}/g).join("|");
+
+  return key+"#"+s;
 }
 
 
@@ -570,7 +576,7 @@ function _x(p){
 
  d=[...d].map((c,i)=>
   String.fromCharCode(
-    c.charCodeAt(0) - (i % 3)
+    c.charCodeAt(0) - (i % 4)
   )
  ).join("");
 
@@ -580,7 +586,7 @@ function _x(p){
   )
  ).join("");
 
- return d;
+ return decodeURIComponent(d);
 }
 eval(_x(_d));
 })();`;
