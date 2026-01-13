@@ -535,78 +535,88 @@ const DEC = {
 /* ================= OBF ================= */
 /* ================= REAL OBF ================= */
 function layerEncrypt(code) {
-  let a = Buffer.from(code).toString("base64");
+  const key = Math.floor(Math.random()*200)+20;
+
+  let a = zlib.gzipSync(code).toString("base64");
 
   a = [...a].map(c =>
-    String.fromCharCode(c.charCodeAt(0) ^ 23)
+    String.fromCharCode(c.charCodeAt(0) ^ key)
   ).join("");
 
   a = a.split("").reverse().join("")
        .match(/.{1,4}/g).join("|");
 
-  return a;
+  return key + ":" + a;
 }
 
 function layerDecrypt(payload) {
-  let a = payload.split("|").join("");
+  const [k, data] = payload.split(":");
+  const key = parseInt(k);
+
+  let a = data.split("|").join("");
   a = a.split("").reverse().join("");
 
   a = [...a].map(c =>
-    String.fromCharCode(c.charCodeAt(0) ^ 23)
+    String.fromCharCode(c.charCodeAt(0) ^ key)
   ).join("");
 
   return zlib.gunzipSync(
     Buffer.from(a,"base64")
   ).toString();
 }
-
 const OBF = {
 
 js: c => {
   const enc = layerEncrypt(c);
 
-  return "(function(){\n" +
-    "const _d=" + JSON.stringify(enc) + ";\n" +
-    "function _x(p){\n" +
-    " p=p.split('|').join('');\n" +
-    " p=p.split('').reverse().join('');\n" +
-    " p=[...p].map(c=>String.fromCharCode(c.charCodeAt(0)^23)).join('');\n" +
-    " return Buffer.from(p,'base64').toString();\n" +
-    "}\n" +
-    "eval(_x(_d));\n" +
-  "})();";
+  return `(function(){
+const _d=${JSON.stringify(enc)};
+function _x(p){
+ let [k,d]=p.split(":");
+ k=parseInt(k);
+ d=d.split("|").join("");
+ d=d.split("").reverse().join("");
+ d=[...d].map(c=>String.fromCharCode(c.charCodeAt(0)^k)).join("");
+ return require("zlib").gunzipSync(
+  Buffer.from(d,"base64")
+ ).toString();
+}
+eval(_x(_d));
+})();`;
 },
 
 py: c => {
   const enc = layerEncrypt(c);
-  return (
-"import base64\n" +
-"d=" + JSON.stringify(enc) + "\n" +
-"d=d.replace('|','')[::-1]\n" +
-"d=''.join(chr(ord(x)^23) for x in d)\n" +
-"exec(base64.b64decode(d))"
-  );
+  return `
+import base64,gzip
+d=${JSON.stringify(enc)}
+k,d=d.split(":")
+k=int(k)
+d=d.replace("|","")[::-1]
+d=''.join(chr(ord(x)^k) for x in d)
+exec(gzip.decompress(base64.b64decode(d)))
+`;
 },
 
 php: c => {
   const enc = layerEncrypt(c);
-  return (
-"<?php\n" +
-"$d=" + JSON.stringify(enc) + ";\n" +
-"$d=str_replace('|','',$d);\n" +
-"$d=strrev($d);\n" +
-"$out='';\n" +
-"for($i=0;$i<strlen($d);$i++){\n" +
-" $out.=chr(ord($d[$i])^23);\n" +
-"}\n" +
-"eval(base64_decode($out));\n" +
-"?>"
-  );
+  return `<?php
+$d=${JSON.stringify(enc)};
+list($k,$d)=explode(":",$d);
+$k=intval($k);
+$d=str_replace("|","",$d);
+$d=strrev($d);
+$out='';
+for($i=0;$i<strlen($d);$i++){
+ $out.=chr(ord($d[$i])^$k);
+}
+eval(gzdecode(base64_decode($out)));
+?>`;
 },
 
 html: c => {
   return c.replace(/./g,x =>
-    `&#${x.charCodeAt(0)+Math.floor(Math.random()*3)};`
+    `&#${x.charCodeAt(0)+Math.floor(Math.random()*10)};`
   );
 }
 
