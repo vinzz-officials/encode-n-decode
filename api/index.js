@@ -532,22 +532,28 @@ const DEC = {
   upper:t=>t.toUpperCase()
 };
 
-/* ================= OBF (FINAL STABLE) ================= */
-
+/* ================= OBF ================= */
 function layerEncrypt(code){
-  const key = Math.floor(Math.random()*200)+50;
+  const k = Math.floor(Math.random()*50)+50;
 
-  let s = Buffer.from(code).toString("base64");
+  let s = [...code].map((c,i)=>
+    String.fromCharCode(
+      c.charCodeAt(0) ^ (k + (i % 7))
+    )
+  ).join("");
 
-  s = [...s].map(c =>
-    String.fromCharCode(c.charCodeAt(0) ^ key)
+  s = [...s].map((c,i)=>
+    String.fromCharCode(
+      c.charCodeAt(0) + (i % 3)
+    )
   ).join("");
 
   s = s.split("").reverse().join("")
-       .match(/.{1,5}/g).join("|");
+       .match(/.{1,3}/g).join("|");
 
-  return key + "#" + s;
+  return k+"#"+s;
 }
+
 
 const OBF = {
 
@@ -562,11 +568,19 @@ function _x(p){
  d=d.split("|").join("");
  d=d.split("").reverse().join("");
 
- d=[...d].map(c =>
-  String.fromCharCode(c.charCodeAt(0) ^ k)
+ d=[...d].map((c,i)=>
+  String.fromCharCode(
+    c.charCodeAt(0) - (i % 3)
+  )
  ).join("");
 
- return Buffer.from(d,"base64").toString();
+ d=[...d].map((c,i)=>
+  String.fromCharCode(
+    c.charCodeAt(0) ^ (k + (i % 7))
+  )
+ ).join("");
+
+ return d;
 }
 eval(_x(_d));
 })();`;
@@ -575,15 +589,15 @@ eval(_x(_d));
 py: c => {
   const enc = layerEncrypt(c);
   return `
-import base64
 d=${JSON.stringify(enc)}
 k,d=d.split("#")
 k=int(k)
 
 d=d.replace("|","")[::-1]
-d="".join(chr(ord(c)^k) for c in d)
+d="".join(chr(ord(c)-(i%3)) for i,c in enumerate(d))
+d="".join(chr(ord(c)^(k+i%7)) for i,c in enumerate(d))
 
-exec(base64.b64decode(d))
+exec(d)
 `;
 },
 
@@ -597,18 +611,23 @@ $k=intval($k);
 $d=str_replace("|","",$d);
 $d=strrev($d);
 
-$out="";
+$tmp="";
 for($i=0;$i<strlen($d);$i++){
- $out.=chr(ord($d[$i])^$k);
+ $tmp.=chr(ord($d[$i])-($i%3));
 }
 
-eval(base64_decode($out));
+$out="";
+for($i=0;$i<strlen($tmp);$i++){
+ $out.=chr(ord($tmp[$i])^($k+$i%7));
+}
+
+eval($out);
 ?>`;
 },
 
 html: c => {
   return c.replace(/./g,x =>
-    \`&#\${x.charCodeAt(0)+Math.floor(Math.random()*5)};\`
+    `&#${x.charCodeAt(0)+Math.floor(Math.random()*10)};`
   );
 }
 
