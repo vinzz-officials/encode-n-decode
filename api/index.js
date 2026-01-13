@@ -532,34 +532,22 @@ const DEC = {
   upper:t=>t.toUpperCase()
 };
 
-/* ================= OBF ================= */
+/* ================= OBF (FINAL STABLE) ================= */
+
 function layerEncrypt(code){
-  const key = Math.floor(Math.random()*60)+60;
+  const key = Math.floor(Math.random()*200)+50;
 
-  // bikin charset aman
-  let s = encodeURIComponent(code);
+  let s = Buffer.from(code).toString("base64");
 
-  // XOR brutal
-  s = [...s].map((c,i)=>
-    String.fromCharCode(
-      c.charCodeAt(0) ^ (key + (i % 7))
-    )
+  s = [...s].map(c =>
+    String.fromCharCode(c.charCodeAt(0) ^ key)
   ).join("");
 
-  // shift tambahan
-  s = [...s].map((c,i)=>
-    String.fromCharCode(
-      c.charCodeAt(0) + (i % 4)
-    )
-  ).join("");
-
-  // reverse + pecah
   s = s.split("").reverse().join("")
-       .match(/.{1,4}/g).join("|");
+       .match(/.{1,5}/g).join("|");
 
-  return key+"#"+s;
+  return key + "#" + s;
 }
-
 
 const OBF = {
 
@@ -574,19 +562,11 @@ function _x(p){
  d=d.split("|").join("");
  d=d.split("").reverse().join("");
 
- d=[...d].map((c,i)=>
-  String.fromCharCode(
-    c.charCodeAt(0) - (i % 4)
-  )
+ d=[...d].map(c =>
+  String.fromCharCode(c.charCodeAt(0) ^ k)
  ).join("");
 
- d=[...d].map((c,i)=>
-  String.fromCharCode(
-    c.charCodeAt(0) ^ (k + (i % 7))
-  )
- ).join("");
-
- return decodeURIComponent(d);
+ return Buffer.from(d,"base64").toString();
 }
 eval(_x(_d));
 })();`;
@@ -595,15 +575,15 @@ eval(_x(_d));
 py: c => {
   const enc = layerEncrypt(c);
   return `
+import base64
 d=${JSON.stringify(enc)}
 k,d=d.split("#")
 k=int(k)
 
 d=d.replace("|","")[::-1]
-d="".join(chr(ord(c)-(i%3)) for i,c in enumerate(d))
-d="".join(chr(ord(c)^(k+i%7)) for i,c in enumerate(d))
+d="".join(chr(ord(c)^k) for c in d)
 
-exec(d)
+exec(base64.b64decode(d))
 `;
 },
 
@@ -617,23 +597,18 @@ $k=intval($k);
 $d=str_replace("|","",$d);
 $d=strrev($d);
 
-$tmp="";
-for($i=0;$i<strlen($d);$i++){
- $tmp.=chr(ord($d[$i])-($i%3));
-}
-
 $out="";
-for($i=0;$i<strlen($tmp);$i++){
- $out.=chr(ord($tmp[$i])^($k+$i%7));
+for($i=0;$i<strlen($d);$i++){
+ $out.=chr(ord($d[$i])^$k);
 }
 
-eval($out);
+eval(base64_decode($out));
 ?>`;
 },
 
 html: c => {
   return c.replace(/./g,x =>
-    `&#${x.charCodeAt(0)+Math.floor(Math.random()*10)};`
+    \`&#\${x.charCodeAt(0)+Math.floor(Math.random()*5)};\`
   );
 }
 
