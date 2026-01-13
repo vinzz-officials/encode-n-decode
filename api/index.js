@@ -537,11 +537,15 @@ function layerEncrypt(code){
   const k = Math.floor(Math.random()*50)+50;
 
   let s = [...code].map((c,i)=>
-    String.fromCharCode(c.charCodeAt(0) ^ (k+i%7))
+    String.fromCharCode(
+      c.charCodeAt(0) ^ (k + (i % 7))
+    )
   ).join("");
 
-  s = s.split("").map((c,i)=>
-    String.fromCharCode(c.charCodeAt(0)+(i%3))
+  s = [...s].map((c,i)=>
+    String.fromCharCode(
+      c.charCodeAt(0) + (i % 3)
+    )
   ).join("");
 
   s = s.split("").reverse().join("")
@@ -565,11 +569,15 @@ function _x(p){
  d=d.split("").reverse().join("");
 
  d=[...d].map((c,i)=>
-  String.fromCharCode(c.charCodeAt(0)-(i%3))
+  String.fromCharCode(
+    c.charCodeAt(0) - (i % 3)
+  )
  ).join("");
 
  d=[...d].map((c,i)=>
-  String.fromCharCode(c.charCodeAt(0) ^ (k+i%7))
+  String.fromCharCode(
+    c.charCodeAt(0) ^ (k + (i % 7))
+  )
  ).join("");
 
  return d;
